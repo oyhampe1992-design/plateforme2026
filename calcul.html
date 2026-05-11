@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Wooder – Configurateur Meuble</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+/* ═══════════════════════════════════════════════════════════════════
+   THE WOODER — style.css
+   Pour modifier l'apparence : ne toucher qu'à ce fichier.
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Variables ─────────────────────────────────────────────────── */
+:root {
+  --bg:      #f5f2ee;
+  --surface: #ffffff;
+  --border:  #222222;
+  --gold:    #8B6914;
+  --gold-lt: #fffdf0;
+  --text:    #1a1a1a;
+  --muted:   #888888;
+  --green:   #2d6a2d;
+  --red:     #c0392b;
+  --blue:    #1a3a8f;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); font-family: Georgia, serif; color: var(--text); line-height: 1.5; }
+
+/* ── Header ────────────────────────────────────────────────────── */
+.app-header {
+  background: var(--text);
+  color: #fff;
+  padding: 14px 18px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.app-header h1 { font-size: 20px; letter-spacing: 3px; font-weight: normal; color: #fff; }
+.app-header .sub { font-size: 10px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: 1.5px; }
+#headerStatus { margin-left: auto; font-size: 10px; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing: 1px; }
+
+/* ── Layout ────────────────────────────────────────────────────── */
+.app-body { padding: 14px 14px 80px; max-width: 900px; margin: 0 auto; }
+
+/* ── Sections accordéon ────────────────────────────────────────── */
+.section { background: var(--surface); border: 1.5px solid var(--border); margin-bottom: 8px; transition: box-shadow .15s; }
+.section:hover { box-shadow: 2px 4px 12px rgba(0,0,0,.08); }
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; user-select: none; transition: background .1s; }
+.section-header:hover { background: var(--bg); }
+.section-header.active { background: var(--text); color: #fff; }
+.section-title { display: flex; align-items: center; gap: 9px; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
+.section-icon { font-size: 15px; }
+.section-arrow { font-size: 9px; transition: transform .2s; color: var(--muted); flex-shrink: 0; }
+.section-arrow.open { transform: rotate(90deg); }
+.section-header.active .section-arrow { color: rgba(255,255,255,.5); }
+.section-badge { font-size: 9px; background: #f0ece6; color: var(--gold); padding: 2px 7px; border-radius: 10px; letter-spacing: .5px; white-space: nowrap; }
+.section-header.active .section-badge { background: rgba(255,255,255,.15); color: #fff; }
+.section-body { display: none; padding: 15px; border-top: 1px solid #eee; }
+.section-body.open { display: block; }
+.section.result .section-header { border-left: 3px solid var(--gold); }
+.section.result.has-data .section-header { border-left-color: var(--green); }
+
+/* ── Grilles ───────────────────────────────────────────────────── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+/* ── Champs formulaire ─────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field label { font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+.field input, .field select {
+  border: 1.5px solid #ccc; padding: 8px 9px; font-size: 13px;
+  font-family: Georgia, serif; background: #fafafa; width: 100%;
+  appearance: none; -webkit-appearance: none; transition: border-color .12s;
+}
+.field input:focus, .field select:focus { border-color: var(--gold); outline: none; background: var(--gold-lt); }
+
+/* ── Upload zone ───────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed #bbb; padding: 24px 14px; text-align: center;
+  cursor: pointer; background: #fafafa; margin-bottom: 10px;
+  position: relative; transition: border-color .15s, background .15s; display: block;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--gold); background: var(--gold-lt); }
+.upload-zone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.upload-icon { font-size: 30px; color: #ccc; margin-bottom: 7px; }
+.upload-zone p { font-size: 13px; color: #666; }
+.upload-zone p b { color: var(--text); }
+.upload-zone p.small { font-size: 11px; color: #aaa; margin-top: 3px; }
+
+/* ── Boutons ───────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 9px 16px; font-size: 11px; font-family: Georgia, serif;
+  text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--border); color: #fff;
+  margin-right: 5px; margin-top: 4px;
+  transition: opacity .12s, transform .08s; white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-white { background: #fff; color: var(--text); }
+.btn-white:hover { background: var(--bg); }
+.btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
+.btn-gold:hover { background: #7a5c12; }
+.btn-danger { background: #fff; border-color: var(--red); color: var(--red); }
+.btn-sm { padding: 5px 10px; font-size: 10px; margin: 0; }
+
+/* ── Tabs ──────────────────────────────────────────────────────── */
+.tabs { display: flex; margin-bottom: 10px; }
+.tab { padding: 8px 15px; font-size: 10px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--text); text-transform: uppercase; letter-spacing: .8px; margin-right: -1px; transition: background .1s; }
+.tab.active { background: var(--text); color: #fff; }
+.tab:hover:not(.active) { background: var(--bg); }
+
+/* ── Textarea ──────────────────────────────────────────────────── */
+textarea {
+  width: 100%; min-height: 100px; border: 1.5px solid #ccc; padding: 9px;
+  font-size: 12px; font-family: 'Courier New', monospace;
+  background: #fafafa; resize: vertical; line-height: 1.6; transition: border-color .12s;
+}
+textarea:focus { border-color: var(--gold); outline: none; }
+
+/* ── Messages ──────────────────────────────────────────────────── */
+.msg-err  { background: #fff0f0; border: 1px solid #f0a0a0; padding: 9px 12px; font-size: 12px; color: var(--red);   margin-top: 7px; }
+.msg-ok   { background: #f0fff0; border: 1px solid #a0d0a0; padding: 9px 12px; font-size: 12px; color: var(--green); margin-top: 7px; }
+.msg-info { background: #f0f4ff; border: 1px solid #a0b0d0; padding: 9px 12px; font-size: 12px; color: var(--blue);  margin-top: 7px; }
+.loading { padding: 12px; font-size: 13px; color: var(--muted); text-align: center; }
+.spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid #ddd; border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; margin-right: 7px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tableaux ──────────────────────────────────────────────────── */
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th { background: var(--text); color: #fff; padding: 7px 9px; text-align: left; font-weight: normal; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; }
+td { padding: 6px 9px; border-bottom: 1px solid #f0ece6; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fdf9f4; }
+
+/* ── Badges types ──────────────────────────────────────────────── */
+.badge { display: inline-block; padding: 2px 6px; font-size: 9px; border-radius: 2px; white-space: nowrap; }
+.b-lateral  { background: #f0e8d8; color: #8B6914; border: 1px solid #8B6914; }
+.b-montant  { background: #f0e8d8; color: #8B6914; border: 1px solid #8B6914; }
+.b-panneau  { background: #e8e8f5; color: #3a3a8f; border: 1px solid #3a3a8f; }
+.b-etagere  { background: #f5e8e0; color: #8f4a2f; border: 1px solid #8f4a2f; }
+.b-porte    { background: #e8f0e0; color: #2d6a2d; border: 1px solid #4a7c2f; }
+.b-tiroir   { background: #e0f0e8; color: #2d6a4a; border: 1px solid #2d6a4a; }
+.b-plinthe  { background: #f0f0e0; color: #5a5a00; border: 1px solid #8a8a00; }
+.b-fond, .b-autre { background: #eee; color: #555; border: 1px solid #aaa; }
+
+/* ── Stats boxes ───────────────────────────────────────────────── */
+.stats-grid   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+.stats-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.stat-box { background: var(--bg); border: 1.5px solid #ddd; padding: 11px; }
+.stat-val { font-size: 19px; color: var(--gold); line-height: 1.1; margin-bottom: 3px; }
+.stat-val.green { color: var(--green); }
+.stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; }
+
+/* ── Carte meuble ──────────────────────────────────────────────── */
+.meuble-card { background: #fafafa; border: 1.5px solid #ddd; margin-bottom: 10px; padding: 12px; transition: border-color .12s; }
+.meuble-card:hover { border-color: var(--gold); }
+.meuble-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.meuble-num { font-size: 9px; font-weight: bold; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; }
+.meuble-name-input { border: 1px solid #ddd; padding: 5px 7px; font-size: 13px; font-family: Georgia, serif; width: 100%; max-width: 220px; margin-top: 3px; background: #fff; }
+.meuble-name-input:focus { border-color: var(--gold); outline: none; }
+.meuble-params { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meuble-param label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; display: block; margin-bottom: 2px; }
+.meuble-param select { border: 1.5px solid var(--gold); padding: 6px 7px; font-size: 11px; font-family: Georgia, serif; background: var(--gold-lt); width: 100%; appearance: none; -webkit-appearance: none; }
+.meuble-param input[type="number"] { border: 1px solid #ddd; padding: 6px 7px; font-size: 12px; font-family: Georgia, serif; background: #fff; width: 100%; }
+.meuble-param input[type="number"]:focus, .meuble-param select:focus { border-color: var(--gold); outline: none; background: var(--gold-lt); }
+.meuble-info { font-size: 10px; color: #aaa; margin-top: 5px; font-style: italic; }
+
+/* ── Divers ────────────────────────────────────────────────────── */
+.note { font-size: 10px; color: #999; margin-top: 5px; font-style: italic; }
+.sep-meuble { background: var(--text); color: #fff; padding: 6px 11px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-top: 12px; }
+.sep-meuble:first-child { margin-top: 0; }
+.canvas-wrap { overflow-x: auto; margin-top: 10px; background: #fafafa; border: 1px solid #eee; padding: 4px; }
+.canvas-wrap canvas { display: block; max-width: 100%; }
+.dxf-card { margin-bottom: 16px; }
+.dxf-card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 7px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+
+/* ── Select global ─────────────────────────────────────────────── */
+select { border: 1px solid #ddd; padding: 4px 6px; font-size: 11px; font-family: Georgia, serif; background: #fafafa; appearance: none; -webkit-appearance: none; width: 100%; }
+select:focus { border-color: var(--gold); outline: none; background: var(--gold-lt); }
+
+/* ── Sticky bar ────────────────────────────────────────────────── */
+#stickyBar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--text); display: none; align-items: center; padding: 9px 15px; gap: 8px; z-index: 200; box-shadow: 0 -2px 10px rgba(0,0,0,.25); }
+#stickyBar.visible { display: flex; }
+#stickyLabel { font-size: 10px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: 1px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sticky-btn { padding: 9px 15px; font-size: 10px; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; border: none; white-space: nowrap; transition: opacity .12s; }
+.sticky-btn:hover { opacity: .85; }
+.sticky-main { background: var(--gold); color: #fff; }
+
+/* ── Cartes de résultats (4 catégories) ──────────────────────── */
+.result-card { background: var(--surface); border: 1px solid #e0d9cc; border-left: 3px solid var(--gold); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
+.result-card.hidden { display: none; }
+.result-card-header { padding: 14px 18px; cursor: pointer; display: flex; align-items: center; gap: 14px; background: #fafaf6; transition: background .15s; }
+.result-card-header:hover { background: var(--gold-lt); }
+.result-card-title { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; font-size: 14px; font-family: Georgia, serif; }
+.result-card-title .ico { font-size: 22px; }
+.result-card-metric { flex: 1 1 auto; text-align: right; font-size: 18px; color: var(--gold); font-family: Georgia, serif; font-weight: bold; letter-spacing: .5px; }
+.result-card-metric span { font-variant-numeric: tabular-nums; }
+.result-card-arrow { flex: 0 0 auto; transition: transform .18s; color: var(--muted); font-size: 11px; }
+.result-card.open .result-card-arrow { transform: rotate(90deg); }
+.result-card-body { padding: 0 16px 16px; display: none; border-top: 1px solid #eee; }
+.result-card.open .result-card-body { display: block; padding-top: 16px; }
+/* Quand les sections existantes sont imbriquées dans une carte, on masque leur header
+   (la carte devient le seul toggle) et on force leur body ouvert */
+.result-card-body .section { margin-bottom: 10px; }
+.result-card-body .section.hidden { display: none; }
+.result-card-body .section > .section-header { display: none; }
+.result-card-body .section > .section-body { display: block !important; }
+
+/* ── Accordéon des types de fichiers (dans la carte Fichiers) ── */
+.file-type { border: 1px solid #e5dfd3; border-radius: 3px; margin-bottom: 6px; overflow: hidden; background: #fff; }
+.file-type-header { padding: 11px 14px; cursor: pointer; display: flex; align-items: center; gap: 12px; background: #fafaf6; transition: background .15s; }
+.file-type-header:hover { background: var(--gold-lt); }
+.file-type-title { flex: 0 0 auto; font-size: 12px; color: var(--text); font-family: Georgia, serif; }
+.file-type-count { flex: 1 1 auto; text-align: right; font-size: 11px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
+.file-type-arrow { flex: 0 0 auto; transition: transform .18s; color: var(--muted); font-size: 10px; }
+.file-type.open .file-type-arrow { transform: rotate(90deg); }
+.file-type-body { padding: 12px 14px; display: none; border-top: 1px solid #eee; background: #fdfcf9; }
+.file-type.open .file-type-body { display: block; }
+.file-type-body .note { margin-bottom: 8px; }
+.file-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.file-actions .btn { font-size: 11px; }
+.sticky-pdf  { background: rgba(255,255,255,.12); color: #fff; }
+
+/* ── Utilitaires ───────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+/* ── Catalogue éditable (matériaux, connecteurs, etc.) ──────────── */
+.cat-head, .cat-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 28px;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid #eee;
+}
+.cat-head-2col ~ .cat-row, .cat-head.cat-head-2col {
+  grid-template-columns: 2fr 1.2fr 28px;
+}
+/* Les .cat-row suivant un head 2col prennent aussi 2 col. On utilise
+   plutôt un wrapper data-2col quand besoin. Par simplicité on applique
+   en cascade depuis le parent via une classe sur l'host — voir JS. */
+.cat-head {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--muted);
+  background: #fafafa;
+  border-bottom: 1.5px solid var(--border);
+  padding: 7px 6px;
+}
+.cat-row:hover { background: var(--gold-lt); }
+.cat-row-custom { background: #f0f7ef; }
+.cat-row-custom:hover { background: #e6f2e4; }
+.cat-cell { font-size: 12px; }
+.cat-cell input[type="number"] {
+  border: 1px solid #ccc;
+  padding: 5px 6px;
+  font-size: 12px;
+  font-family: Georgia, serif;
+  background: #fafafa;
+  width: 100%;
+}
+.cat-cell input[type="number"]:focus {
+  border-color: var(--gold);
+  outline: none;
+  background: var(--gold-lt);
+}
+.cat-nom { font-weight: 500; }
+.cat-nom-input {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: Georgia, serif;
+  background: #fff;
+  width: 100%;
+}
+.cat-base {
+  font-size: 9px;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 2px;
+}
+.cat-cell-act { text-align: center; }
+.btn-cat-del {
+  background: transparent;
+  border: none;
+  color: var(--red);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  opacity: .6;
+  transition: opacity .1s;
+}
+.btn-cat-del:hover { opacity: 1; }
+.btn-add-cat {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  background: #fafafa;
+  border: 1.5px dashed var(--gold);
+  color: var(--gold);
+  font-family: Georgia, serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.btn-add-cat:hover { background: var(--gold-lt); }
+
+/* Version 2 colonnes pour catégories sans "usage multiple" */
+.cat-table-2col .cat-head,
+.cat-table-2col .cat-row {
+  grid-template-columns: 2fr 1fr 28px;
+}
+
+/* Version 4 colonnes pour usinages (nom / prix / unité / action) */
+.cat-table-4col .cat-head,
+.cat-table-4col .cat-row {
+  grid-template-columns: 2fr 1fr 1fr 28px;
+}
+
+/* Version matériaux : nom / épaisseur / prix / longueur / largeur / action */
+.cat-table-mat .cat-head,
+.cat-table-mat .cat-row {
+  grid-template-columns: 1.7fr .7fr .9fr 1fr 1fr 28px;
+}
+.cat-cell-unite { font-size: 11px; color: var(--muted); }
+.cat-unite { font-style: italic; }
+.cat-unite-sel {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: Georgia, serif;
+  background: #fff;
+  width: 100%;
+}
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .grid2, .grid3, .meuble-params { grid-template-columns: 1fr; }
+  .stats-grid-4 { grid-template-columns: 1fr 1fr; }
+  .btn { padding: 8px 11px; font-size: 10px; }
+}
+
+  </style>
+</head>
+<body>
+
+
+<header class="app-header">
+  <h1>THE WOODER</h1>
+  <span class="sub">Configurateur meuble sur-mesure</span>
+  <span id="headerStatus"></span>
+</header>
+
+<!-- Inputs globaux cachés (synchronisation multi-meubles) -->
+<div style="display:none">
+  <select id="typePortes"><option value="applique">En applique</option><option value="encastree">Encastrees</option></select>
+  <select id="typePlinthe"><option value="encastree">Encastree</option><option value="applique">En applique</option><option value="aucune">Aucune</option></select>
+  <input type="number" id="epaisseur" value="19">
+  <input type="number" id="debutPerc" value="96">
+  <input type="number" id="margeBas" value="100">
+  <input type="number" id="profondeur" value="600">
+</div>
+
+<div class="app-body">
+
+  <!-- ══ 1. IMPORT PDF ═════════════════════════════════════════════════ -->
+  <div class="section" id="secImport">
+    <div class="section-header active" onclick="toggleSection('secImport')">
+      <div class="section-title"><span class="section-icon">📄</span><span>Feuilles de débit</span><span class="section-badge" id="badgeImport">0 meuble</span></div>
+      <span class="section-arrow open">▶</span>
+    </div>
+    <div class="section-body open">
+      <div id="listeMeubles"></div>
+      <div id="zonePdf">
+        <label class="upload-zone" id="dropZone">
+          <div class="upload-icon">📄</div>
+          <p><b>Appuyer pour ajouter un PDF</b></p>
+          <p class="small">Glisser-déposer accepté — plusieurs meubles possibles</p>
+          <input type="file" id="fileInput" accept=".pdf,application/pdf" multiple>
+        </label>
+        <div id="pdfStatus"></div>
+      </div>
+      <div id="zoneTexte" class="hidden">
+        <p style="font-size:11px;color:#666;margin-bottom:7px">Collez le contenu de la feuille de débit</p>
+        <textarea id="txtPDF" placeholder="Désignation&#9;Longueur&#9;Largeur&#9;Epaisseur&#9;Nombre&#10;Panneau supérieur&#9;2862&#9;581&#9;19&#9;1"></textarea>
+      </div>
+      <div class="tabs" style="margin-top:10px">
+        <div class="tab active" id="tabPdf"   onclick="switchTab('pdf')">PDF</div>
+        <div class="tab"        id="tabTexte" onclick="switchTab('texte')">Copier-coller</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">
+        <button class="btn btn-white" id="btnParser">Analyser le texte</button>
+        <button class="btn btn-white" id="btnExemple">Exemple</button>
+        <button class="btn btn-danger btn-sm" id="btnVider" style="margin-top:4px">🗑 Vider</button>
+      </div>
+      <div id="msgParse" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- ══ 2. CHOIX DU PROJET ═══════════════════════════════════════════ -->
+  <div class="section" id="secChoix">
+    <div class="section-header" onclick="toggleSection('secChoix')">
+      <div class="section-title"><span class="section-icon">🎯</span><span>Choix du projet</span><span class="section-badge">Matériaux · Connecteurs · Quincaillerie — auto-sauvegardé</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#666;margin-bottom:12px">Sélectionnez les matériaux, connecteurs et quincaillerie à utiliser pour ce meuble. Les prix sont définis dans « Paramétrage Matériaux &amp; Prix ».</p>
+
+      <!-- MATÉRIAUX -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Matériaux</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div class="field">
+          <label>Mode matériaux</label>
+          <select id="selModeMat" onchange="toggleModeMat()">
+            <option value="unique">Matériau unique (tout le meuble)</option>
+            <option value="separe">Caisson + Façades séparés</option>
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+      <div id="zoneMat19">
+        <div class="grid2" style="margin-bottom:10px">
+          <div class="field">
+            <label id="lblMat19">Matériau panneau 19mm</label>
+            <select id="selMat19" onchange="majPrixMat('selMat19','prixPan19')">
+              <!-- options générées dynamiquement depuis CATALOG.materiaux -->
+            </select>
+          </div>
+          <div class="field"></div>
+        </div>
+      </div>
+      <div id="zoneMatFacades" class="hidden" style="background:#fdf9f4;border:1.5px solid var(--gold);padding:10px;margin-bottom:10px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Façades — Portes &amp; tiroirs</div>
+        <div class="grid2">
+          <div class="field">
+            <label>Matériau façades</label>
+            <select id="selMatFacades" onchange="majPrixMat('selMatFacades','prixFacades')">
+              <!-- options générées dynamiquement -->
+            </select>
+          </div>
+          <div class="field"></div>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="field">
+          <label>Matériau fond</label>
+          <select id="selMatFond" onchange="majPrixMat('selMatFond','prixPan8')">
+            <!-- options générées dynamiquement -->
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+
+      <!-- CONNECTEUR -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Connecteur d'assemblage</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Type de connecteur</label>
+          <select id="paramTypeConnecteur" onchange="toggleParamsConnecteur()">
+            <option value="excentrique_tourillon">Excentrique + Tourillon</option>
+            <option value="clamex_biscuit">Clamex P-14 + Biscuit (centre)</option>
+            <option value="lamello_biscuit">Biscuit Lamello seul</option>
+            <option value="clamex_p14">Clamex P-14 seul</option>
+            <option value="tenso">Lamello Tenso P-14</option>
+            <option value="domino">Festool Domino</option>
+            <option value="cabineo_8">Cabineo 8 (panneau central, ép. ≥ 16mm)</option>
+            <option value="cabineo_12">Cabineo 12</option>
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+
+      <!-- CHARNIÈRE -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Charnière</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Type de charnière</label>
+          <select id="paramTypeCharniere">
+            <option value="blum_inserta">Blum Inserta</option>
+            <option value="blum_cliptop">Blum Clip Top</option>
+            <option value="simple">Charnière simple</option>
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+
+      <!-- CHANT -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Chant</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Type de chant</label>
+          <select id="selChant">
+            <!-- options générées dynamiquement depuis CATALOG.chants -->
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+
+      <!-- TIROIR / COULISSE -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Tiroirs &amp; coulisses</div>
+      <div class="grid2">
+        <div class="field">
+          <label>Type de coulisse</label>
+          <select id="paramTypeCoulisse" onchange="toggleParamsTiroir()">
+            <option value="billes_standard">Coulisse à billes standard</option>
+            <optgroup label="Blum">
+              <option value="blum_tandem_560h">Blum Tandem 560H (côtés 11-16mm)</option>
+              <option value="blum_tandem_19">Blum Tandem 19mm 569H (côtés 17-19mm)</option>
+              <option value="blum_tandembox">Blum Tandembox (côtés métal)</option>
+              <option value="blum_legrabox">Blum Legrabox</option>
+              <option value="blum_movento">Blum Movento</option>
+            </optgroup>
+            <optgroup label="Hettich">
+              <option value="hettich_architech">Hettich ArciTech</option>
+              <option value="hettich_atira">Hettich InnoTech Atira</option>
+              <option value="hettich_quadro">Hettich Quadro</option>
+            </optgroup>
+            <optgroup label="Grass">
+              <option value="grass_novapro">Grass Nova Pro Scala</option>
+              <option value="grass_dynapro">Grass Dynapro</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field" id="zonEpTiroirBois">
+          <label>Épaisseur bois tiroir (mm)</label>
+          <input type="number" id="paramEpTiroirBois" value="15" min="8" max="22" step="1">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 3. PARAMÉTRAGE MATÉRIAUX & PRIX ═══════════════════════════════ -->
+  <div class="section" id="secParamsMat">
+    <div class="section-header" onclick="toggleSection('secParamsMat')">
+      <div class="section-title"><span class="section-icon">💰</span><span>Paramétrage Matériaux &amp; Prix</span><span class="section-badge">Catalogue tarifaire — auto-sauvegardé</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#666;margin-bottom:12px">Catalogue de tous les tarifs utilisés pour le devis. Les modifications sont <b>sauvegardées automatiquement</b> et restaurées à la prochaine ouverture.</p>
+
+      <!-- ── PANNEAUX ──────────────────────────────────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Panneaux — Prix actifs (matériau sélectionné)</div>
+      <div class="grid3" style="margin-bottom:10px">
+        <div class="field"><label id="lblPrix19">Prix caisson (€/m²)</label><input type="number" id="prixPan19" value="22" min="0" step="0.5" readonly style="background:#f0ece6;color:#666"></div>
+        <div class="field"><label>Prix façades (€/m²)</label><input type="number" id="prixFacades" value="45" min="0" step="0.5" readonly style="background:#f0ece6;color:#666"></div>
+        <div class="field"><label>Prix fond (€/m²)</label><input type="number" id="prixPan8" value="18" min="0" step="0.5" readonly style="background:#f0ece6;color:#666"></div>
+      </div>
+      <p class="note" style="font-size:10px;color:var(--muted);margin:-4px 0 10px">↑ Synchronisés automatiquement avec le matériau choisi. Modifiez les prix dans le catalogue ci-dessous.</p>
+
+      <!-- CATALOGUE MATÉRIAUX -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Catalogue matériaux — prix au m² par usage</div>
+      <div id="catalogueMateriaux"><!-- rendu par catalogue-ui.js --></div>
+
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px">Optimisation</div>
+      <div class="grid2" style="margin-bottom:4px">
+        <div class="field"><label>Trait de scie (mm)</label><input type="number" id="paramTrait" value="3" min="1" max="6" step="0.5"></div>
+        <div class="field"></div>
+      </div>
+      <p class="note" style="font-size:10px;color:var(--muted);margin:-2px 0 4px">Les dimensions des planches brutes sont lues automatiquement sur le matériau sélectionné (colonnes Longueur/Largeur du catalogue ci-dessus).</p>
+
+      <!-- ── QUINCAILLERIE — CONNECTEURS D'ASSEMBLAGE ──────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:6px;padding-top:10px;border-top:1px solid #eee">Connecteurs d'assemblage</div>
+      <div id="catalogueConnecteurs"><!-- rendu par catalogue-ui.js --></div>
+
+      <!-- ── QUINCAILLERIE — CHARNIÈRES ────────────────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Charnières</div>
+      <div id="catalogueCharnieres"><!-- rendu par catalogue-ui.js --></div>
+
+      <!-- ── QUINCAILLERIE — COULISSES & TIROIRS ──────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Coulisses &amp; tiroirs</div>
+      <div id="catalogueCoulisses"><!-- rendu par catalogue-ui.js --></div>
+
+      <!-- ── QUINCAILLERIE — FIXATIONS &amp; ACCESSOIRES ────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Fixations &amp; accessoires</div>
+      <div id="catalogueFixations"><!-- rendu par catalogue-ui.js --></div>
+
+      <!-- ── CHANTS ─────────────────────────────────────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px;padding-top:10px;border-top:1px solid #eee">Chants — placage + fourniture au ml</div>
+      <p style="font-size:11px;color:#666;margin-bottom:8px">Chaque type de chant a son prix <b>placage</b> au ml et son prix <b>fourniture/colle</b> au ml. Sélectionnez le type utilisé dans « Choix du projet ». Le calcul applique automatiquement +10% sur les ml (chutes de bande).</p>
+      <div id="catalogueChants"><!-- rendu dynamiquement --></div>
+      <button type="button" class="btn" onclick="ajouterChant()" style="margin-top:8px;font-size:12px;padding:6px 12px">+ Ajouter un chant</button>
+
+      <!-- ── PRIX D'USINAGE ────────────────────────────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px;padding-top:10px;border-top:1px solid #eee">Prix d'usinage — coût par opération</div>
+      <p style="font-size:11px;color:#666;margin-bottom:8px">Chaque opération a son tarif unitaire avec son unité (€/trou, €/ml, €/m², €/pce…). Les opérations les plus courantes sont pré-remplies ; ajoutez vos propres usinages avec le bouton ci-dessous.</p>
+      <div id="catalogueUsinages"><!-- rendu par catalogue-ui.js --></div>
+
+      <!-- ── SERVICES ──────────────────────────────────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px;padding-top:10px;border-top:1px solid #eee">Services &amp; Main-d'œuvre</div>
+      <div class="grid3">
+        <div class="field"><label>Taux horaire (€/h)</label><input type="number" id="prixTauxHoraire" value="45" min="0" step="1"></div>
+        <div class="field"><label>Livraison (€)</label><input type="number" id="prixLivraison" value="80" min="0" step="1"></div>
+        <div class="field"></div>
+      </div>
+
+      <!-- ── COEFFICIENTS ──────────────────────────────────────── -->
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px;padding-top:10px;border-top:1px solid #eee">Coefficients de vente</div>
+      <div class="grid2">
+        <div class="field"><label>Coefficient vente</label><input type="number" id="prixCoeff" value="2" min="1" step="0.1"></div>
+        <div class="field"><label>TVA (%)</label><input type="number" id="prixTVA" value="20" min="0" step="1"></div>
+      </div>
+
+      <p class="note" style="margin-top:10px">Tous les prix sont utilisés par le calcul du coût de revient. Modifiez-les à tout moment.</p>
+    </div>
+  </div>
+
+  <!-- ══ 4. PARAMÉTRAGE FABRICATION ═══════════════════════════════════ -->
+  <div class="section" id="secParamsFab">
+    <div class="section-header" onclick="toggleSection('secParamsFab')">
+      <div class="section-title"><span class="section-icon">⚙</span><span>Paramétrage Fabrication</span><span class="section-badge">Rainure · Connecteurs · Usinage — auto-sauvegardé</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#666;margin-bottom:12px">Paramètres techniques appliqués aux calculs d'usinage. Les valeurs par défaut conviennent à la plupart des projets.</p>
+
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:4px">Perçage système 32 — par meuble</div>
+      <div id="zonePercageParMeuble"></div>
+      <p class="note" style="margin-bottom:14px">Ces valeurs sont propres à chaque meuble (comme avant) — juste regroupées ici avec les autres paramètres d'usinage.</p>
+
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:4px">Rainure de fond</div>
+      <div class="grid2">
+        <div class="field"><label>Largeur rainure (mm)</label><input type="number" id="paramRainLargeur" value="8" min="3" max="20" step="0.5"></div>
+        <div class="field"><label>Distance bord arrière (mm)</label><input type="number" id="paramRainDistBord" value="10" min="3" max="50" step="0.5"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Profondeur rainure — latéraux / panneaux (mm)</label><input type="number" id="paramRainProfLateral" value="5" min="2" max="15" step="0.5"></div>
+        <div class="field"><label>Profondeur rainure — montants (mm)</label><input type="number" id="paramRainProfMontant" value="5" min="2" max="15" step="0.5"></div>
+      </div>
+
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:12px">Fond de meuble</div>
+      <div class="grid2">
+        <div class="field"><label>Épaisseur fond (mm)</label><input type="number" id="paramFondEpaisseur" value="8" min="3" max="19" step="1"></div>
+        <div class="field"></div>
+      </div>
+
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:12px">Connecteurs — Positionnement &amp; perçage</div>
+      <p style="font-size:10px;color:#888;margin-bottom:8px;font-style:italic">Le type de connecteur se choisit dans « Choix du projet ».</p>
+      <div class="grid3">
+        <div class="field"><label>Exc. distance bord avant (mm)</label><input type="number" id="paramExcAvant" value="100" min="30" max="300" step="5"></div>
+        <div class="field"><label>Tourillon distance bord avant (mm)</label><input type="number" id="paramTouAvant" value="140" min="30" max="300" step="5"></div>
+        <div class="field"><label>Ø perçage excentrique (mm)</label><input type="number" id="paramDiamPerc" value="5" min="3" max="10" step="0.5"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Ø excentrique (mm)</label><input type="number" id="paramDiamExc" value="15" min="10" max="25" step="0.5"></div>
+        <div class="field"><label>Ø tourillon (mm)</label><input type="number" id="paramDiamTou" value="6" min="4" max="12" step="0.5"></div>
+        <div class="field"><label>Distance rangée / bord (mm)</label><input type="number" id="paramBord" value="37" min="20" max="80" step="1"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Prof. tourillon montant (mm)</label><input type="number" id="paramProfTou" value="13" min="5" max="25" step="0.5"></div>
+        <div class="field"><label>Prof. tourillon adjacente (mm)</label><input type="number" id="paramProfTou2" value="12" min="5" max="25" step="0.5"></div>
+        <div class="field"></div>
+      </div>
+
+      <!-- Paramètres Clamex + Biscuit (affichés selon le type) -->
+      <div id="zoneParamsClamex" class="hidden" style="background:#fdf9f4;border:1.5px solid var(--gold);padding:10px;margin-top:8px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Clamex P-14 — Spécifications officielles Lamello</div>
+        <div class="grid3">
+          <div class="field"><label>Distance bord avant (mm)</label><input type="number" id="paramClamexAvant" value="100" min="37" max="300" step="5"></div>
+          <div class="field"><label>Longueur rainure P-System (mm)</label><input type="number" id="paramClamexLong" value="52" min="40" max="80" step="1"></div>
+          <div class="field"><label>Profondeur rainure (mm)</label><input type="number" id="paramClamexProf" value="14" min="8" max="20" step="0.5"></div>
+        </div>
+        <div class="grid3">
+          <div class="field"><label>Largeur rainure — fraise Ø100.4 (mm)</label><input type="number" id="paramClamexLarg" value="7" min="6" max="8" step="0.1"></div>
+          <div class="field"><label>Ø trou d'accès (mm)</label><input type="number" id="paramClamexAcces" value="6" min="4" max="10" step="0.5"></div>
+          <div class="field"><label>Position trou d'accès / centre (mm)</label><input type="number" id="paramClamexAccesOff" value="0" min="-30" max="30" step="1"></div>
+        </div>
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px">Biscuit central (biscuit standard Lamello)</div>
+        <div class="grid3">
+          <div class="field"><label>Longueur biscuit #20 (mm)</label><input type="number" id="paramBiscuitLong" value="60" min="40" max="80" step="1"></div>
+          <div class="field"><label>Profondeur fente (mm)</label><input type="number" id="paramBiscuitProf" value="10" min="5" max="15" step="0.5"></div>
+          <div class="field"><label>Largeur fente (mm)</label><input type="number" id="paramBiscuitLarg" value="4" min="3" max="6" step="0.1"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Seuil ajout biscuit (mm)</label><input type="number" id="paramBiscuitSeuil" value="600" min="200" max="2000" step="50"></div>
+          <div class="field"></div>
+        </div>
+        <p class="note" style="margin-top:6px">Rainure P-System : Ø100.4 × 7mm prof.14mm (Zeta P2 / CNC). 2 Clamex en bout + biscuit au centre si pièce > seuil.</p>
+      </div>
+
+      <!-- Paramètres Cabineo (affichés selon le type) -->
+      <div id="zoneParamsCabineo" class="hidden" style="background:#fdf9f4;border:1.5px solid var(--gold);padding:10px;margin-top:8px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Cabineo — Spécifications officielles Lamello</div>
+        <div class="grid3">
+          <div class="field"><label>Distance bord avant (mm)</label><input type="number" id="paramCabAvant" value="100" min="40" max="300" step="5"></div>
+          <div class="field"><label>Nombre par bout</label>
+            <select id="paramCabNbBout">
+              <option value="auto">Auto (2 si prof&lt;400, sinon 3)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+          <div class="field"><label>Seuil passage à 3 (mm)</label><input type="number" id="paramCabSeuil" value="400" min="200" max="1000" step="50"></div>
+        </div>
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px">Poche fraisée (sur face intérieure de la pièce mâle)</div>
+        <div class="grid3">
+          <div class="field"><label>Longueur poche (mm)</label><input type="number" id="paramCabPocheL" value="33.8" min="30" max="40" step="0.1"></div>
+          <div class="field"><label>Largeur poche (mm)</label><input type="number" id="paramCabPocheW" value="16.5" min="14" max="20" step="0.1"></div>
+          <div class="field"><label>Profondeur poche (mm)</label><input type="number" id="paramCabPocheD" value="10.8" min="8" max="14" step="0.1"></div>
+        </div>
+        <div class="grid3">
+          <div class="field"><label>Ø trou chant (mm)</label><input type="number" id="paramCabHole" value="5" min="4" max="8" step="0.5"></div>
+          <div class="field"><label>Ø forage poche (mm)</label><input type="number" id="paramCabDiamForage" value="12" min="8" max="20" step="0.5"></div>
+          <div class="field"><label>Nb forages par poche</label><input type="number" id="paramCabNbForages" value="3" min="2" max="6" step="1"></div>
+        </div>
+        <p class="note" style="margin-top:6px">Poche = N forages Ø configurables qui se chevauchent pour couvrir la longueur 33,8 mm · Trou Ø5 sur chant panneau (prof. 8mm pour Cabineo 8, 12mm pour Cabineo 12).</p>
+      </div>
+
+      <p class="note" style="margin-top:10px">Ces paramètres sont lus automatiquement à chaque calcul. Le type de coulisse de tiroir se choisit dans « Choix du projet ».</p>
+    </div>
+  </div>
+
+  <!-- ══ PIÈCES ═══════════════════════════════════════════════════════ -->
+  <div class="section hidden" id="secPieces">
+    <div class="section-header active" onclick="toggleSection('secPieces')">
+      <div class="section-title"><span class="section-icon">📋</span><span>Pièces détectées</span><span class="section-badge" id="nbPieces">0 pièce</span></div>
+      <span class="section-arrow open">▶</span>
+    </div>
+    <div class="section-body open">
+      <div id="tbodyPiecesMulti"></div>
+      <!-- Bouton "Calculer tout" masqué : le calcul est déclenché automatiquement après détection des pièces -->
+      <div style="display:none"><button class="btn btn-gold" id="btnCalculer">⚡ Calculer tout</button></div>
+      <p class="note" style="margin-top:8px">Les calculs se lancent automatiquement. L'étape suivante sera la validation de l'ordre des colonnes.</p>
+    </div>
+  </div>
+
+  <!-- ══ ORDRE DES COLONNES ═══════════════════════════════════════════ -->
+  <div class="section result hidden" id="secColonnes">
+    <div class="section-header" onclick="toggleSection('secColonnes')">
+      <div class="section-title"><span class="section-icon">📐</span><span>Ordre des colonnes</span><span class="section-badge" id="badgeColonnes">—</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#666;margin-bottom:8px">Vérifiez l'ordre des colonnes de gauche à droite en vous aidant de la vue éclatée. Modifiez si nécessaire avant de lancer le calcul.</p>
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div id="colonnesImage" style="max-width:340px;min-width:200px;flex:1"></div>
+        <div id="colonnesSelectors" style="flex:1;min-width:220px"></div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-gold" id="btnValiderColonnes" style="padding:12px 20px;font-size:12px;letter-spacing:1px">✓ Valider l'ordre et voir les résultats</button>
+        <button class="btn btn-white" id="btnResetColonnes" style="margin-left:8px">↺ Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- ══ RÉSULTATS — 4 CARTES TOP-LEVEL ═════════════════════════════ -->
+
+  <div class="result-card hidden" id="cardChant">
+    <div class="result-card-header" onclick="toggleResultCard(this.parentElement)">
+      <div class="result-card-title"><span class="ico">📏</span>Chant</div>
+      <div class="result-card-metric"><span id="metricChant">—</span></div>
+      <span class="result-card-arrow">▶</span>
+    </div>
+    <div class="result-card-body">
+<div class="section result hidden" id="secChant">
+    <div class="section-header" onclick="toggleSection('secChant')">
+      <div class="section-title"><span class="section-icon">📏</span><span>Chant</span><span class="section-badge" id="badgeChant">—</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="stats-grid stats-grid-4">
+        <div class="stat-box"><div class="stat-val" id="chantNet">—</div><div class="stat-lbl">Total net</div></div>
+        <div class="stat-box"><div class="stat-val" id="chantPlus">—</div><div class="stat-lbl">Total +10%</div></div>
+        <div class="stat-box"><div class="stat-val" id="chantPortes">—</div><div class="stat-lbl">Portes/tiroirs</div></div>
+        <div class="stat-box"><div class="stat-val" id="chantEtag">—</div><div class="stat-lbl">Caissons/étagères</div></div>
+      </div>
+      <div class="scroll">
+        <table><thead><tr><th>Désignation</th><th>Type</th><th>Chant/pièce</th><th>Nb</th><th>Total mm</th><th>Total ml</th><th>Note</th></tr></thead>
+        <tbody id="tbodyChant"></tbody></table>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <div class="result-card hidden" id="cardPrix">
+    <div class="result-card-header" onclick="toggleResultCard(this.parentElement)">
+      <div class="result-card-title"><span class="ico">💰</span>Prix</div>
+      <div class="result-card-metric"><span id="metricPrix">—</span></div>
+      <span class="result-card-arrow">▶</span>
+    </div>
+    <div class="result-card-body">
+<div class="section result hidden" id="secCout">
+    <div class="section-header" onclick="toggleSection('secCout')">
+      <div class="section-title"><span class="section-icon">💰</span><span>Coût de revient</span><span class="section-badge" id="badgeCout">—</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:12px;color:#666;margin-bottom:10px">Calcul basé sur les prix définis dans <b>Paramétrage Matériaux & Prix</b>.</p>
+      <button class="btn btn-gold" id="btnCalculPrix" style="margin-top:4px">Calculer le prix</button>
+      <div id="prixResultat" class="hidden" style="margin-top:12px">
+        <div class="stats-grid stats-grid-4">
+          <div class="stat-box"><div class="stat-val" id="prixSousTotal">—</div><div class="stat-lbl">Sous-total HT</div></div>
+          <div class="stat-box"><div class="stat-val green" id="prixVente">—</div><div class="stat-lbl">Prix vente HT</div></div>
+          <div class="stat-box"><div class="stat-val" id="prixTTC">—</div><div class="stat-lbl">Prix TTC</div></div>
+          <div class="stat-box"><div class="stat-val" id="prixMarge">—</div><div class="stat-lbl">Marge HT</div></div>
+        </div>
+        <div class="scroll" style="margin-top:9px">
+          <table><thead><tr><th>Poste</th><th>Détail</th><th>Qté</th><th>PU</th><th>Total HT</th></tr></thead>
+          <tbody id="tbodyPrix"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+<div class="section result hidden" id="secTiroirs">
+    <div class="section-header" onclick="toggleSection('secTiroirs')">
+      <div class="section-title"><span class="section-icon">🗄️</span><span>Tiroirs — Détail &amp; Dimensions</span><span class="section-badge" id="badgeTiroirs">—</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div id="tiroirInfo" style="font-size:12px;color:#666;margin-bottom:10px"></div>
+      <div class="stats-grid stats-grid-4">
+        <div class="stat-box"><div class="stat-val" id="tiroirNb">—</div><div class="stat-lbl">Tiroirs</div></div>
+        <div class="stat-box"><div class="stat-val" id="tiroirType">—</div><div class="stat-lbl">Système</div></div>
+        <div class="stat-box"><div class="stat-val" id="tiroirJeu">—</div><div class="stat-lbl">Jeu latéral/côté</div></div>
+        <div class="stat-box"><div class="stat-val" id="tiroirPieces">—</div><div class="stat-lbl">Pièces ajoutées</div></div>
+      </div>
+      <div class="scroll">
+        <table><thead><tr><th>Façade</th><th>Dim. façade</th><th>Système</th><th>Colonne</th><th>Largeur int.</th><th>Profondeur</th><th>Pièces caisson</th></tr></thead>
+        <tbody id="tbodyTiroirs"></tbody></table>
+      </div>
+      <div id="tiroirCutlistExtra" style="margin-top:12px"></div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <div class="result-card hidden" id="cardPlan2D">
+    <div class="result-card-header" onclick="toggleResultCard(this.parentElement)">
+      <div class="result-card-title"><span class="ico">🗺️</span>Plan 2D</div>
+      <div class="result-card-metric"><span id="metricPlan2D">—</span></div>
+      <span class="result-card-arrow">▶</span>
+    </div>
+    <div class="result-card-body">
+<div class="section result hidden" id="secDebit">
+    <div class="section-header" onclick="toggleSection('secDebit')">
+      <div class="section-title"><span class="section-icon">🪵</span><span>Débit & Optimisation coupe</span><span class="section-badge" id="badgeDebit">—</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div id="optiResultat"></div>
+      <div class="canvas-wrap"><canvas id="canvasOpti19"></canvas></div>
+      <div class="canvas-wrap" style="margin-top:6px"><canvas id="canvasOptiFacades"></canvas></div>
+      <div class="canvas-wrap" style="margin-top:6px"><canvas id="canvasOpti8"></canvas></div>
+      <div style="margin-top:9px;display:flex;flex-wrap:wrap;gap:4px">
+        <button class="btn btn-gold"  id="btnCutlist19">⬇ CSV 19mm</button>
+        <button class="btn btn-white" id="btnCutlist8">⬇ CSV 8mm</button>
+        <button class="btn btn-white" id="btnCutlistTout">⬇ CSV complet</button>
+      </div>
+      <div class="stats-grid" style="margin-top:10px">
+        <div class="stat-box"><div class="stat-val" id="cutlistNbPieces">—</div><div class="stat-lbl">Pièces total</div></div>
+        <div class="stat-box"><div class="stat-val" id="cutlistSurf">—</div><div class="stat-lbl">Surface m²</div></div>
+      </div>
+      <div class="scroll">
+        <table><thead><tr><th>Désignation</th><th>Longueur</th><th>Largeur</th><th>Ép.</th><th>Qté</th><th>Matériau</th></tr></thead>
+        <tbody id="tbodyCutlist"></tbody></table>
+      </div>
+      <p class="note">Panneau brut 2800×2070mm — trait de scie 3mm</p>
+    </div>
+  </div>
+<div class="section result hidden" id="secPlan2D">
+    <div class="section-header" onclick="toggleSection('secPlan2D')">
+      <div class="section-title"><span class="section-icon">🗺️</span><span>Plan 2D coté</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <button class="btn btn-gold" id="btnExportPlan" style="margin-bottom:10px">⬇ Exporter PNG</button>
+      <div class="canvas-wrap"><canvas id="planCanvas" style="display:block;margin:0 auto"></canvas></div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <div class="result-card hidden" id="cardFichiers">
+    <div class="result-card-header" onclick="toggleResultCard(this.parentElement)">
+      <div class="result-card-title"><span class="ico">📦</span>Fichiers de fabrication</div>
+      <div class="result-card-metric"><span id="metricFichiers">—</span></div>
+      <span class="result-card-arrow">▶</span>
+    </div>
+    <div class="result-card-body">
+      <p style="font-size:12px;color:#666;margin-bottom:12px">Cliquer sur un format pour voir et télécharger les fichiers correspondants.</p>
+
+      <!-- PDF -->
+      <div class="file-type" id="fileType_pdf">
+        <div class="file-type-header" onclick="toggleFileType(this.parentElement)">
+          <div class="file-type-title">📄 PDF — Plans de fabrication</div>
+          <div class="file-type-count" id="countPDF">—</div>
+          <span class="file-type-arrow">▶</span>
+        </div>
+        <div class="file-type-body" id="listPDF"></div>
+      </div>
+
+      <!-- DXF -->
+      <div class="file-type" id="fileType_dxf">
+        <div class="file-type-header" onclick="toggleFileType(this.parentElement)">
+          <div class="file-type-title">🔧 DXF — Plans 2D usinage</div>
+          <div class="file-type-count" id="countDXF">—</div>
+          <span class="file-type-arrow">▶</span>
+        </div>
+        <div class="file-type-body" id="listDXF">
+          <!-- La section DXF existante est insérée ici pour conserver toute la logique ZIP -->
+<div class="section result hidden" id="secDXF">
+    <div class="section-header" onclick="toggleSection('secDXF')">
+      <div class="section-title"><span class="section-icon">🔧</span><span>DXF Usinage</span><span class="section-badge" id="badgeDXF">—</span></div>
+      <span class="section-arrow">▶</span>
+    </div>
+    <div class="section-body">
+
+      <div class="dxf-card">
+        <div class="dxf-card-title">⬤ Perçages 32mm</div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-val" id="percTotal">—</div><div class="stat-lbl">Trous total</div></div>
+          <div class="stat-box"><div class="stat-val" id="percPieces">—</div><div class="stat-lbl">Pièces percées</div></div>
+        </div>
+        <div class="scroll"><table><thead><tr><th>Désignation</th><th>Type</th><th>Rangées</th><th>Trous/rangée</th><th>Total</th><th>1er</th><th>Dernier</th><th>Écart bas</th><th>DXF</th></tr></thead><tbody id="tbodyPerc"></tbody></table></div>
+        <button class="btn btn-gold" id="btnZipPerc" style="margin-top:9px">⬇ ZIP Perçages</button>
+      </div>
+
+      <div class="dxf-card hidden" id="resRainCard">
+        <div class="dxf-card-title">⬤ Rainures fond</div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-val" id="rainNb">—</div><div class="stat-lbl">Pièces rainurées</div></div>
+          <div class="stat-box"><div class="stat-val" id="rainTotal">—</div><div class="stat-lbl">Longueur totale</div></div>
+        </div>
+        <div class="scroll"><table><thead><tr><th>Désignation</th><th>Profondeur</th><th>Hauteur</th><th>Position rainure</th><th>Largeur</th><th>Prof.</th><th>DXF</th></tr></thead><tbody id="tbodyRain"></tbody></table></div>
+        <button class="btn btn-gold" id="btnZipRain" style="margin-top:9px">⬇ ZIP Rainures</button>
+      </div>
+
+      <div class="dxf-card hidden" id="resConnCard">
+        <div class="dxf-card-title">⬤ Connecteurs EC03</div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-val" id="connTotal">—</div><div class="stat-lbl">Connecteurs</div></div>
+          <div class="stat-box"><div class="stat-val" id="connLiaisons">—</div><div class="stat-lbl">Liaisons</div></div>
+        </div>
+        <div class="scroll"><table><thead><tr><th>Désignation</th><th>Liaison</th><th>Nb</th><th>Positions X</th><th>Position Y</th><th>DXF</th></tr></thead><tbody id="tbodyConn"></tbody></table></div>
+        <button class="btn btn-gold" id="btnZipConn" style="margin-top:9px">⬇ ZIP Connecteurs</button>
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid #eee">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Tous les types de connecteurs</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <button class="btn btn-gold" id="btnZipTousCompletDXF">⬇ ZIP complet DXF + PDF</button>
+            <button class="btn btn-white" id="btnDXFSeulTousConnDXF">🔧 ZIP DXF seuls</button>
+            <button class="btn btn-white" id="btnPDFSeulTousConnDXF">📄 ZIP PDF seuls</button>
+          </div>
+          <p class="note">Fichiers pour les 5 types de connecteurs, quel que soit le choix actuel.</p>
+        </div>
+      </div>
+
+      <div class="dxf-card hidden" id="resCharnCard">
+        <div class="dxf-card-title">⬤ Charnières Blum Inserta</div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-val" id="charnTotal">—</div><div class="stat-lbl">Charnières</div></div>
+          <div class="stat-box"><div class="stat-val" id="charnPortes">—</div><div class="stat-lbl">Portes</div></div>
+        </div>
+        <div class="scroll"><table><thead><tr><th>Désignation</th><th>Hauteur</th><th>Largeur</th><th>Nb</th><th>Positions Y</th><th>Axe X</th><th>DXF</th></tr></thead><tbody id="tbodyCharn"></tbody></table></div>
+        <button class="btn btn-gold" id="btnZipCharn" style="margin-top:9px">⬇ ZIP Portes</button>
+      </div>
+
+      <div class="dxf-card hidden" id="resFondCard">
+        <div class="dxf-card-title">⬤ Panneaux de fond</div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-val" id="fondNb">—</div><div class="stat-lbl">Fonds</div></div>
+          <div class="stat-box"><div class="stat-val" id="fondSurf">—</div><div class="stat-lbl">Surface m²</div></div>
+        </div>
+        <div class="scroll"><table><thead><tr><th>Désignation</th><th>Longueur</th><th>Largeur</th><th>Ép.</th><th>Nb</th><th>Détail calcul</th></tr></thead><tbody id="tbodyFond"></tbody></table></div>
+      </div>
+
+    </div>
+  </div>
+        </div>
+      </div>
+
+      <!-- MPR -->
+      <div class="file-type" id="fileType_mpr">
+        <div class="file-type-header" onclick="toggleFileType(this.parentElement)">
+          <div class="file-type-title">🏭 MPR — Homag / Weeke woodWOP</div>
+          <div class="file-type-count" id="countMPR">—</div>
+          <span class="file-type-arrow">▶</span>
+        </div>
+        <div class="file-type-body" id="listMPR">
+          <p class="note">Un fichier .mpr par pièce pour centre d'usinage point-à-point.</p>
+          <div class="file-actions">
+            <button class="btn btn-gold" onclick="if(typeof telechargerZipMpr==='function')telechargerZipMpr()">⬇ ZIP tous les MPR</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- G-code -->
+      <div class="file-type" id="fileType_gcode">
+        <div class="file-type-header" onclick="toggleFileType(this.parentElement)">
+          <div class="file-type-title">⚙ G-code — GRBL / Mach3 / LinuxCNC</div>
+          <div class="file-type-count" id="countGcode">—</div>
+          <span class="file-type-arrow">▶</span>
+        </div>
+        <div class="file-type-body" id="listGcode">
+          <p class="note">Un fichier .gcode par pièce pour CNC 3 axes.</p>
+          <div class="file-actions">
+            <button class="btn btn-gold" onclick="if(typeof telechargerZipGcode==='function')telechargerZipGcode()">⬇ ZIP tous les G-code</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DWG (placeholder) -->
+      <div class="file-type" id="fileType_dwg">
+        <div class="file-type-header" onclick="toggleFileType(this.parentElement)">
+          <div class="file-type-title">📐 DWG — AutoCAD</div>
+          <div class="file-type-count" style="color:#bbb">à venir</div>
+          <span class="file-type-arrow">▶</span>
+        </div>
+        <div class="file-type-body">
+          <p class="note">Format DWG non généré pour l'instant. En attendant, les fichiers DXF ci-dessus sont directement importables dans AutoCAD et la plupart des logiciels CAD.</p>
+        </div>
+      </div>
+
+      <!-- CSV -->
+      <div class="file-type" id="fileType_csv">
+        <div class="file-type-header" onclick="toggleFileType(this.parentElement)">
+          <div class="file-type-title">📊 CSV — Listes de débit</div>
+          <div class="file-type-count" id="countCSV">—</div>
+          <span class="file-type-arrow">▶</span>
+        </div>
+        <div class="file-type-body" id="listCSV"></div>
+      </div>
+
+      <!-- TOUT TÉLÉCHARGER -->
+      <div style="margin-top:18px;padding-top:14px;border-top:2px solid #eee;text-align:center">
+        <button class="btn btn-gold" onclick="toutTelecharger()" style="width:100%;padding:14px;font-size:12px;letter-spacing:1.5px">⬇ TOUT TÉLÉCHARGER — projet complet (1 ZIP)</button>
+        <p class="note" style="margin-top:6px">Un seul ZIP avec tous les formats, organisé par dossiers.</p>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- fin app-body -->
+
+<!-- ══ STICKY BAR ══════════════════════════════════════════════════════ -->
+<div id="stickyBar">
+  <span id="stickyLabel">Projet prêt</span>
+  <button class="sticky-btn sticky-main" id="btnRecupFichiers">📦 Récupérer les fichiers</button>
+</div>
+
+<!-- ══ SCRIPTS — chargés dans l'ordre des dépendances ═════════════════ --><script>
+'use strict';
+
+
+/* ============================================================
+   1. CONFIG -- Constantes globales (PAS, dimensions panneau...)
+   ============================================================ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE WOODER — config.js
+   Constantes globales. Modifier ici sans toucher au reste.
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Trame & perçage ──────────────────────────────────────────────
+var PAS       = 32;   // trame 32mm
+var BORD      = 37;   // distance X rangée de trous depuis le bord
+var DIAM      = 5;    // diamètre trou perçage excentrique (mm)
+var DIAM_TOU  = 6;    // diamètre tourillon (mm)
+var PROF_TOU  = 13;   // profondeur tourillon sur le montant (mm) — moitié de 25mm + 0.5 jeu
+var PROF_TOU2 = 12;   // profondeur tourillon sur la pièce adjacente (étagère/panneau)
+
+// ── Rainure & fond ───────────────────────────────────────────────
+var RAIN_LARGEUR    = 8;    // largeur de la rainure fond (mm)
+var RAIN_PROF_LATERAL = 5;    // profondeur rainure sur latéraux/panneaux (mm)
+var RAIN_PROF_MONTANT = 5;    // profondeur rainure sur montants intermédiaires (mm)
+var RAIN_DIST_BORD  = 10;   // distance bord arrière → début rainure (mm)
+var FOND_EPAISSEUR  = 8;    // épaisseur du panneau de fond (mm)
+
+// ── Connecteur ──────────────────────────────────────────────────
+var TYPE_CONNECTEUR = 'excentrique_tourillon';
+var TYPE_CHARNIERE  = 'blum_inserta';
+
+// ── Cabineo (specs officielles Lamello) ────────────────────────
+var CAB_AVANT   = 100;   // distance bord avant (mm)
+var CAB_NB_BOUT = 'auto'; // 'auto' | '2' | '3' | '4'
+var CAB_SEUIL   = 400;   // profondeur à partir de laquelle on passe à 3 Cabineo (mode auto)
+var CAB_POCHE_L = 33.8;  // longueur poche fraisée (mm)
+var CAB_POCHE_W = 16.5;  // largeur poche fraisée (mm)
+var CAB_POCHE_D = 10.8;  // profondeur poche fraisée (mm)
+var CAB_HOLE    = 5;     // Ø trou chant (mm, reçoit la vis Cabineo)
+var CAB_DIAM_FORAGE = 12; // Ø forage poche (mm, foret/fraise utilisé pour la poche)
+var CAB_NB_FORAGES  = 3;  // nb forages chevauchants par poche (3 = standard Lamello)
+// Profondeur trou chant : 8mm pour Cabineo 8, 12mm pour Cabineo 12 (automatique)
+
+// ── Clamex P-14 & biscuit (specs officielles Lamello) ──────────
+var CLAMEX_AVANT    = 100; // distance bord avant (mm)
+var CLAMEX_LONG     = 52;  // longueur rainure P-System visible en surface (mm)
+var CLAMEX_PROF     = 14;  // profondeur rainure (Zeta P2 réglage 14)
+var CLAMEX_LARG     = 7;   // largeur rainure = épaisseur fraise Ø100.4×7mm
+var CLAMEX_ACCES    = 6;   // Ø trou d'accès Allen officiel Lamello
+var CLAMEX_ACCES_OFF = 0;  // décalage du trou d'accès par rapport au centre de la rainure (mm)
+var BISCUIT_LONG    = 60;  // biscuit #20
+var BISCUIT_PROF    = 10;  // profondeur fente
+var BISCUIT_LARG    = 4;   // largeur fente
+var BISCUIT_SEUIL   = 600; // longueur mini pour biscuit central
+
+// ── Coulisses tiroirs (futur) ───────────────────────────────────
+var TYPE_COULISSE   = 'standard';
+
+// ── Configuration des systèmes de tiroirs ────────────────────────
+// jeuLat    = jeu latéral par côté (mm) entre caisson et tiroir
+// typeTir   = 'bois' (caisson bois complet) ou 'metal' (côtés métal, seuls fond+dos en bois)
+// prixId    = ID du champ prix dans Paramétrage
+// epJoue    = épaisseur joue tiroir bois (mm)
+// epFond    = épaisseur fond tiroir (mm)
+// retrait   = retrait profondeur tiroir vs profondeur meuble (mm)
+// hauteurs  = hauteurs standard disponibles pour systèmes métal (mm)
+// Helper global : formatte une valeur mm en "123" si entier ou "123,5" si décimal
+function formatMm(v) {
+  if (v == null || isNaN(v)) return '—';
+  var rounded = Math.round(v * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 0.05) return Math.round(rounded).toString();
+  return rounded.toFixed(1).replace('.', ',');
+}
+
+var COULISSES_CONFIG = {
+  'billes_standard':   { nom:'Coulisse à billes',      jeuLat:12.7, typeTir:'bois',  prixId:'prixTiroir',         epJoue:15, epFond:5,  retrait:30, rainure4Cotes:true, rainurePos:10 },
+  'blum_tandem_560h':  { nom:'Blum Tandem 560H',         jeuLat:21,   typeTir:'bois',  prixId:'prixTiroirTandem560', epJoue:16, epJoueMax:16, epFond:5,  retrait:3, facadeDepassBas:15.5, facadeDepassHaut:10, rainurePos:13, lonJoueOffset:10, NLdispo:[250,270,300,320,350,380,400,420,450,480,500,520,550,580,600] },
+  'blum_tandem_19':    { nom:'Blum Tandem 19mm (560F)',  jeuLat:24.5, typeTir:'bois',  prixId:'prixTiroirTandem19',  epJoue:19, epJoueMax:19, epFond:5,  retrait:3, facadeDepassBas:16.5, facadeDepassHaut:10, rainurePos:12, lonJoueOffset:10, NLdispo:[250,270,300,350,400,450,500,550,600] },
+  'blum_tandembox':    { nom:'Blum Tandembox',          jeuLat:21,   typeTir:'metal', prixId:'prixTiroirTandem',     epFond:8,  retrait:20, hauteurs:[83,115,199,270] },
+  'blum_legrabox':     { nom:'Blum Legrabox',           jeuLat:22,   typeTir:'metal', prixId:'prixTiroirLegra',    epFond:8,  retrait:20, hauteurs:[68,101,177,241] },
+  'blum_movento':      { nom:'Blum Movento',            jeuLat:12.5, typeTir:'bois',  prixId:'prixTiroirMovento',  epJoue:15, epFond:5,  retrait:25 },
+  'hettich_architech': { nom:'Hettich ArciTech',        jeuLat:22,   typeTir:'metal', prixId:'prixTiroirArcitech', epFond:8,  retrait:20, hauteurs:[94,126,186,218,250] },
+  'hettich_atira':     { nom:'Hettich InnoTech Atira',  jeuLat:22,   typeTir:'metal', prixId:'prixTiroirAtira',    epFond:8,  retrait:20, hauteurs:[70,100,144,176] },
+  'hettich_quadro':    { nom:'Hettich Quadro',          jeuLat:12.5, typeTir:'bois',  prixId:'prixTiroirQuadro',   epJoue:15, epFond:5,  retrait:25 },
+  'grass_novapro':     { nom:'Grass Nova Pro Scala',    jeuLat:22,   typeTir:'metal', prixId:'prixTiroirNovaPro',  epFond:8,  retrait:20, hauteurs:[90,122,186,250] },
+  'grass_dynapro':     { nom:'Grass Dynapro',           jeuLat:12.5, typeTir:'bois',  prixId:'prixTiroirDynapro',  epJoue:15, epFond:5,  retrait:25 }
+};
+
+function getCoulisseConfig() {
+  var cfg = COULISSES_CONFIG[TYPE_COULISSE] || COULISSES_CONFIG['billes_standard'];
+  // Pour les tiroirs bois, lire l'épaisseur depuis le champ utilisateur
+  if (cfg.typeTir === 'bois') {
+    var epInput = parseFloat((document.getElementById('paramEpTiroirBois') || {}).value) || 15;
+    cfg = Object.assign({}, cfg, { epJoue: epInput });
+  }
+  return cfg;
+}
+
+// Afficher/cacher le champ épaisseur bois selon le type de coulisse
+function toggleParamsTiroir() {
+  var t = document.getElementById('paramTypeCoulisse').value;
+  var cfg = COULISSES_CONFIG[t] || COULISSES_CONFIG['billes_standard'];
+  var zone = document.getElementById('zonEpTiroirBois');
+  var input = document.getElementById('paramEpTiroirBois');
+  if (zone) zone.style.display = (cfg.typeTir === 'bois') ? '' : 'none';
+  if (input && cfg.typeTir === 'bois') {
+    // Ajuster les limites selon le système (Tandem 560H: max 16mm, Tandem 19mm: max 19mm)
+    if (cfg.epJoueMax) {
+      input.max = cfg.epJoueMax;
+      if (parseFloat(input.value) > cfg.epJoueMax) input.value = cfg.epJoueMax;
+      input.min = cfg.epJoueMax >= 19 ? 17 : 8;
+    } else {
+      input.max = 22; input.min = 8;
+    }
+    // Mettre la valeur par défaut si le champ est vide
+    if (!input.value || parseFloat(input.value) < parseFloat(input.min)) input.value = cfg.epJoue;
+  }
+}
+
+// ── Panneau brut ─────────────────────────────────────────────────
+var PANN_W    = 2800; // largeur panneau brut (mm)
+var PANN_H    = 2070; // hauteur panneau brut (mm)
+var PANN_FOND_W = 2800; // largeur panneau fond brut (mm)
+var PANN_FOND_H = 2070; // hauteur panneau fond brut (mm)
+var TRAIT     = 3;    // épaisseur trait de scie (mm)
+
+// ── État global partagé entre tous les modules ───────────────────
+window._meubles       = [];
+window._percDets      = [];
+window._itemsCache    = [];
+window._piecesRain    = [];
+window._charnDets     = [];
+window._liaisons      = [];
+window._fonds         = [];
+window._cutlistPieces = [];
+window._opti19        = null;
+window._opti8         = null;
+window._profMeubleRain = 600;
+window._rainures      = {};
+
+// ── PDF.js worker ────────────────────────────────────────────────
+// Sur iOS quand le HTML est ouvert depuis un email/fichier local, le worker CDN
+// peut être bloqué par la politique de sécurité. On utilise un fallback.
+(function initPdfWorker() {
+  if (typeof pdfjsLib === 'undefined') return;
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  } catch (e) {
+    // Fallback : désactiver le worker (lecture dans le thread principal, plus lent)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  }
+})();
+
+// Détection plateforme iOS (pour affichage de messages adaptés)
+var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// ── Lecture des paramètres depuis la section Paramétrage ─────────
+// Helper : lit une dimension (longueur/largeur) sur le matériau actuellement
+// sélectionné dans un dropdown, via le catalogue. Si le catalogue ou le
+// matériau n'est pas disponible, retourne la valeur de secours.
+function _dimFromMat(selId, champ, fallback) {
+  var sel = document.getElementById(selId);
+  if (!sel || typeof catalogueGet !== 'function') return fallback;
+  var m = catalogueGet('materiaux', sel.value);
+  return (m && typeof m[champ] === 'number') ? m[champ] : fallback;
+}
+
+function lireParams() {
+  RAIN_LARGEUR      = parseFloat(document.getElementById('paramRainLargeur').value)      || 8;
+  RAIN_PROF_LATERAL = parseFloat(document.getElementById('paramRainProfLateral').value)  || 5;
+  RAIN_PROF_MONTANT = parseFloat(document.getElementById('paramRainProfMontant').value)  || 5;
+  RAIN_DIST_BORD    = parseFloat(document.getElementById('paramRainDistBord').value)     || 10;
+  FOND_EPAISSEUR  = parseInt(document.getElementById('paramFondEpaisseur').value, 10)|| 8;
+  TYPE_CONNECTEUR = document.getElementById('paramTypeConnecteur').value || 'excentrique_tourillon';
+  TYPE_CHARNIERE  = (document.getElementById('paramTypeCharniere') || {}).value || 'blum_inserta';
+  TYPE_COULISSE   = document.getElementById('paramTypeCoulisse').value   || 'standard';
+  EXC_AVANT       = parseFloat(document.getElementById('paramExcAvant').value)       || 100;
+  TOU_AVANT       = parseFloat(document.getElementById('paramTouAvant').value)       || 140;
+  DIAM_EXC        = parseFloat(document.getElementById('paramDiamExc').value)        || 15;
+  DIAM_TOU        = parseFloat(document.getElementById('paramDiamTou').value)        || 6;
+  DIAM            = parseFloat(document.getElementById('paramDiamPerc').value)       || 5;
+  PROF_TOU        = parseFloat(document.getElementById('paramProfTou').value)        || 13;
+  PROF_TOU2       = parseFloat(document.getElementById('paramProfTou2').value)       || 12;
+  BORD            = parseFloat(document.getElementById('paramBord').value)           || 37;
+  PANN_W          = _dimFromMat('selMat19',   'longueur', 2800);
+  PANN_H          = _dimFromMat('selMat19',   'largeur',  2070);
+  PANN_FOND_W     = _dimFromMat('selMatFond', 'longueur', 2800);
+  PANN_FOND_H     = _dimFromMat('selMatFond', 'largeur',  2070);
+  TRAIT            = parseFloat(document.getElementById('paramTrait').value)          || 3;
+  // Clamex P-14 & biscuit (specs Lamello)
+  CLAMEX_AVANT    = parseFloat(document.getElementById('paramClamexAvant').value)    || 100;
+  CLAMEX_LONG     = parseFloat(document.getElementById('paramClamexLong').value)     || 52;
+  CLAMEX_PROF     = parseFloat(document.getElementById('paramClamexProf').value)     || 14;
+  CLAMEX_LARG     = parseFloat(document.getElementById('paramClamexLarg').value)     || 7;
+  CLAMEX_ACCES    = parseFloat(document.getElementById('paramClamexAcces').value)    || 6;
+  CLAMEX_ACCES_OFF = parseFloat(document.getElementById('paramClamexAccesOff').value) || 0;
+  BISCUIT_LONG    = parseFloat(document.getElementById('paramBiscuitLong').value)    || 60;
+  BISCUIT_PROF    = parseFloat(document.getElementById('paramBiscuitProf').value)    || 10;
+  BISCUIT_LARG    = parseFloat(document.getElementById('paramBiscuitLarg').value)    || 4;
+  BISCUIT_SEUIL   = parseFloat(document.getElementById('paramBiscuitSeuil').value)   || 600;
+  // Cabineo (specs Lamello)
+  CAB_AVANT       = parseFloat(document.getElementById('paramCabAvant').value)      || 100;
+  CAB_NB_BOUT     = document.getElementById('paramCabNbBout').value                 || 'auto';
+  CAB_SEUIL       = parseFloat(document.getElementById('paramCabSeuil').value)      || 400;
+  CAB_POCHE_L     = parseFloat(document.getElementById('paramCabPocheL').value)     || 33.8;
+  CAB_POCHE_W     = parseFloat(document.getElementById('paramCabPocheW').value)     || 16.5;
+  CAB_POCHE_D     = parseFloat(document.getElementById('paramCabPocheD').value)     || 10.8;
+  CAB_HOLE        = parseFloat(document.getElementById('paramCabHole').value)       || 5;
+  CAB_DIAM_FORAGE = parseFloat(document.getElementById('paramCabDiamForage').value) || 12;
+  CAB_NB_FORAGES  = parseInt(document.getElementById('paramCabNbForages').value, 10) || 3;
+}
+
+// ── Afficher/cacher paramètres Clamex/Cabineo selon connecteur choisi ───
+function toggleParamsConnecteur() {
+  var t = document.getElementById('paramTypeConnecteur').value;
+  var showClamex  = (t === 'clamex_biscuit' || t === 'clamex_p14' || t === 'lamello_biscuit');
+  var showCabineo = (t === 'cabineo_8' || t === 'cabineo_12');
+  document.getElementById('zoneParamsClamex').classList.toggle('hidden', !showClamex);
+  document.getElementById('zoneParamsCabineo').classList.toggle('hidden', !showCabineo);
+}
+
+// ── Mise à jour prix depuis sélecteur matériau ──────────────────
+function majPrixMat(selId, inputId) {
+  var sel = document.getElementById(selId);
+  var inp = document.getElementById(inputId);
+  if (sel && inp) inp.value = sel.value;
+}
+
+// ── Toggle mode matériaux unique / séparés ──────────────────────
+function toggleModeMat() {
+  var mode = document.getElementById('selModeMat').value;
+  var zoneFacades = document.getElementById('zoneMatFacades');
+  var lbl19  = document.getElementById('lblMat19');
+  var lblP19 = document.getElementById('lblPrix19');
+  if (mode === 'separe') {
+    zoneFacades.classList.remove('hidden');
+    lbl19.textContent  = 'Matériau caisson';
+    lblP19.textContent = 'Prix caisson (€/m²)';
+  } else {
+    zoneFacades.classList.add('hidden');
+    lbl19.textContent  = 'Matériau panneau 19mm';
+    lblP19.textContent = 'Prix panneau 19mm (€/m²)';
+  }
+}
+
+
+// ================================================================
+// CATALOGUES - code deplace dans js/catalogues.js
+// ================================================================
+
+
+/* ============================================================
+   2. TYPES -- Definition et detection des types de pieces
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE WOODER — types.js
+   Définition et détection des types de pièces.
+   Pour ajouter un nouveau type : ajouter une entrée dans TYPES_DEF
+   et une règle dans detectType().
+═══════════════════════════════════════════════════════════════════ */
+
+var TYPES_DEF = [
+  { val: 'lateral',  lab: 'Panneau latéral',        perc: true,  rang: 2 },
+  { val: 'montant',  lab: 'Montant intermédiaire',   perc: true,  rang: 4 },
+  { val: 'panneau',  lab: 'Panneau sup./inf.',        perc: false, rang: 0 },
+  { val: 'etagere',  lab: 'Étagère',                 perc: false, rang: 0 },
+  { val: 'porte',    lab: 'Porte',                   perc: false, rang: 0 },
+  { val: 'tiroir',   lab: 'Tiroir / Façade',          perc: false, rang: 0 },
+  { val: 'plinthe',  lab: 'Plinthe',                 perc: false, rang: 0 },
+  { val: 'fond',     lab: 'Fond (ignorer)',           perc: false, rang: 0 },
+  { val: 'autre',    lab: 'Autre (ignorer)',          perc: false, rang: 0 }
+];
+
+// Normalise une chaîne (accents → ascii, minuscules)
+function nrm(s) {
+  return s.toLowerCase()
+    .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a')
+    .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o')
+    .replace(/[ûü]/g, 'u').replace(/ç/g, 'c');
+}
+
+// Détecte le type d'une pièce depuis sa désignation
+function detectType(designation) {
+  var s = nrm(designation);
+  if (s.indexOf('fond')      > -1) return 'fond';
+  if (s.indexOf('plinthe')   > -1) return 'plinthe';
+  if (s.indexOf('gauche')    > -1 || s.indexOf('droit')   > -1) return 'lateral';
+  if (s.indexOf('lateral')   > -1 || s.indexOf('cote')    > -1) return 'lateral';
+  if (s.indexOf('montant')   > -1) return 'montant';
+  if (s.indexOf('superieur') > -1 || s.indexOf('inferieur') > -1) return 'panneau';
+  if (s.indexOf('etagere')   > -1 || s.indexOf('tablette') > -1) return 'etagere';
+  if (s.indexOf('tiroir')    > -1 || s.indexOf('facade')   > -1) return 'tiroir';
+  if (s.indexOf('porte')     > -1) return 'porte';
+  return 'autre';
+}
+
+// Retourne la définition d'un type
+function getTD(val) {
+  for (var i = 0; i < TYPES_DEF.length; i++) {
+    if (TYPES_DEF[i].val === val) return TYPES_DEF[i];
+  }
+  return TYPES_DEF[TYPES_DEF.length - 1];
+}
+
+// Retourne la classe CSS badge d'un type
+function bC(type) {
+  var map = {
+    lateral: 'b-lateral', montant: 'b-montant', panneau: 'b-panneau',
+    etagere: 'b-etagere', porte:   'b-porte',   tiroir:  'b-tiroir',
+    plinthe: 'b-plinthe', fond:    'b-fond',     autre:   'b-autre'
+  };
+  return map[type] || 'b-autre';
+}
+
+
+/* ============================================================
+   3. UI -- Accordeon, messages, utilitaires DOM
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE WOODER — ui.js
+   Accordéon, messages, sticky bar, utilitaires DOM.
+   Pour modifier l'interface (animations, messages) : ce fichier.
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Échappement HTML ─────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── Accordéon ────────────────────────────────────────────────────
+function toggleSection(id) {
+  var sec = document.getElementById(id);
+  if (!sec) return;
+  var body   = sec.querySelector('.section-body');
+  var arrow  = sec.querySelector('.section-arrow');
+  var header = sec.querySelector('.section-header');
+  var isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    arrow.classList.remove('open');
+    header.classList.remove('active');
+  } else {
+    body.classList.add('open');
+    arrow.classList.add('open');
+    header.classList.add('active');
+  }
+}
+
+function ouvrirSection(id) {
+  var sec = document.getElementById(id);
+  if (!sec) return;
+  sec.classList.remove('hidden');
+  var body   = sec.querySelector('.section-body');
+  var arrow  = sec.querySelector('.section-arrow');
+  var header = sec.querySelector('.section-header');
+  if (body)   body.classList.add('open');
+  if (arrow)  arrow.classList.add('open');
+  if (header) header.classList.add('active');
+  sec.classList.add('has-data');
+  // Si la section est imbriquée dans une carte de résultats, afficher la carte (header reste cliquable)
+  var parentCard = sec.closest ? sec.closest('.result-card') : null;
+  if (parentCard) parentCard.classList.remove('hidden');
+}
+
+// ── Toggle d'une carte de résultat (Chant/Prix/Plan 2D/Fichiers) ──
+function toggleResultCard(card) {
+  if (!card) return;
+  card.classList.toggle('open');
+}
+
+// ── Toggle d'un type de fichier (PDF/DXF/MPR/G-code/CSV) ──
+function toggleFileType(ft) {
+  if (!ft) return;
+  ft.classList.toggle('open');
+}
+
+// ── Mise à jour des métriques affichées dans les en-têtes de carte ──
+function updateResultMetrics() {
+  var setText = function(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; };
+
+  // Chant : lire depuis #chantNet (déjà alimenté par calculerChant)
+  var chant = document.getElementById('chantNet');
+  if (chant && chant.textContent && chant.textContent !== '—') setText('metricChant', chant.textContent);
+
+  // Prix : lire depuis #prixVente
+  var prix = document.getElementById('prixVente');
+  if (prix && prix.textContent && prix.textContent !== '—') setText('metricPrix', prix.textContent);
+
+  // Plan 2D : construire depuis window._opti19
+  if (window._opti19) {
+    var o = window._opti19;
+    setText('metricPlan2D', o.nbPanneaux + ' panneau' + (o.nbPanneaux > 1 ? 'x' : '') + ' · ' + o.tauxChute + '% chute');
+  }
+
+  // Fichiers : compteurs par type
+  try {
+    var jobs = (typeof buildJobs === 'function') ? buildJobs() : [];
+    var nbJobsSansFond = jobs.filter(function(j) { return j.type !== 'fond_calc' && j.type !== 'fond'; }).length;
+    var nbMeubles = (window._meubles || []).length;
+
+    setText('countPDF', nbMeubles > 0 ? nbMeubles + ' fichier' + (nbMeubles > 1 ? 's' : '') : '—');
+    // DXF = nombre de pièces avec usinage (approximatif)
+    var nbDXF = (window._percDets || []).length + (window._piecesRain || []).length + (window._liaisons || []).length + (window._charnDets || []).length;
+    setText('countDXF', nbDXF > 0 ? nbDXF + ' fichier' + (nbDXF > 1 ? 's' : '') : '—');
+    setText('countMPR', nbJobsSansFond > 0 ? nbJobsSansFond + ' fichier' + (nbJobsSansFond > 1 ? 's' : '') : '—');
+    setText('countGcode', jobs.length > 0 ? jobs.length + ' fichier' + (jobs.length > 1 ? 's' : '') : '—');
+    var nbCSV = (window._cutlistPieces || []).length > 0 ? 3 : 0;
+    setText('countCSV', nbCSV > 0 ? nbCSV + ' fichiers' : '—');
+
+    // Total global carte Fichiers
+    var total = nbMeubles + nbDXF + nbJobsSansFond + jobs.length + nbCSV;
+    setText('metricFichiers', total > 0 ? total + ' fichier' + (total > 1 ? 's' : '') : '—');
+  } catch(e) { console.warn('updateResultMetrics err:', e); }
+
+  // Afficher les cartes qui ont maintenant des données
+  ['cardChant','cardPrix','cardPlan2D','cardFichiers'].forEach(function(id) {
+    var c = document.getElementById(id);
+    if (c) c.classList.remove('hidden');
+  });
+
+  // Remplir dynamiquement les listes PDF et CSV
+  remplirListeFichiers();
+}
+
+function remplirListeFichiers() {
+  // PDF par meuble
+  var listPDF = document.getElementById('listPDF');
+  if (listPDF) {
+    var meubles = window._meubles || [];
+    if (meubles.length === 0) {
+      listPDF.innerHTML = '<p class="note">Aucun meuble — importer un PDF.</p>';
+    } else {
+      var h = '<p class="note">Plans techniques cotés, un PDF par meuble.</p><div class="file-actions">';
+      for (var i = 0; i < meubles.length; i++) {
+        h += '<button class="btn btn-white" onclick="telechargerPDFMeuble(' + i + ')">📄 PDF — ' + esc(meubles[i].nom) + '</button>';
+      }
+      h += '</div>';
+      listPDF.innerHTML = h;
+    }
+  }
+  // CSV
+  var listCSV = document.getElementById('listCSV');
+  if (listCSV) {
+    var pieces = window._cutlistPieces || [];
+    if (pieces.length === 0) {
+      listCSV.innerHTML = '<p class="note">Lancer d\'abord le calcul du débit.</p>';
+    } else {
+      var fondEp = (typeof FOND_EPAISSEUR !== 'undefined') ? FOND_EPAISSEUR : 8;
+      var h = '<p class="note">Listes au format CutList Plus — import direct dans les logiciels d\'optimisation de coupe.</p><div class="file-actions">';
+      h += '<button class="btn btn-white" onclick="document.getElementById(\'btnCutlist19\').click()">📊 CSV 19mm</button>';
+      h += '<button class="btn btn-white" onclick="document.getElementById(\'btnCutlist8\').click()">📊 CSV fond ' + fondEp + 'mm</button>';
+      h += '<button class="btn btn-white" onclick="document.getElementById(\'btnCutlistTout\').click()">📊 CSV complet</button>';
+      h += '</div>';
+      listCSV.innerHTML = h;
+    }
+  }
+}
+
+// ── Tabs import PDF / texte ──────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('zonePdf').style.display   = tab === 'pdf'   ? 'block' : 'none';
+  document.getElementById('zoneTexte').style.display = tab === 'texte' ? 'block' : 'none';
+  document.getElementById('tabPdf').className   = 'tab' + (tab === 'pdf'   ? ' active' : '');
+  document.getElementById('tabTexte').className = 'tab' + (tab === 'texte' ? ' active' : '');
+}
+
+// ── Messages ─────────────────────────────────────────────────────
+function showMsg(txt, type) {
+  var el = document.getElementById('msgParse');
+  if (!txt) { el.className = 'hidden'; return; }
+  el.className = type === 'err' ? 'msg-err' : type === 'info' ? 'msg-info' : 'msg-ok';
+  el.textContent = txt;
+}
+
+function setPdfStatus(html, cls) {
+  var el = document.getElementById('pdfStatus');
+  el.className = cls || '';
+  el.innerHTML = html || '';
+}
+
+// ── Header status ─────────────────────────────────────────────────
+function setHeader(txt) {
+  var el = document.getElementById('headerStatus');
+  if (el) el.textContent = txt;
+}
+
+// ── Sticky bar ────────────────────────────────────────────────────
+function afficherStickyBar(label) {
+  document.getElementById('stickyBar').classList.add('visible');
+  if (label) document.getElementById('stickyLabel').textContent = label;
+}
+
+// ── Téléchargement ────────────────────────────────────────────────
+function telechargerBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+}
+
+// ── Erreurs globales JS ───────────────────────────────────────────
+window.onerror = function (msg, src, line) {
+  setPdfStatus('⚠️ Erreur JS ligne ' + line + ' : ' + msg, 'msg-err');
+  console.error('JS Error:', msg, 'line:', line);
+  return false;
+};
+
+
+/* ============================================================
+   4. PARSER -- Lecture PDF et parsing texte tabulaire
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE WOODER — parser.js
+   Lecture des PDF (pdf.js) et parsing du texte tabulaire.
+   Pour modifier la détection des colonnes ou le format attendu :
+   ce fichier uniquement.
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Parsing texte tabulaire ──────────────────────────────────────
+// Accepte tab ou espaces multiples comme séparateurs.
+// Fallback automatique si pas d'en-tête trouvé.
+// ================================================================
+// PDF IMPORT - code deplace dans js/pdf-import.js
+// ================================================================
+
+
+// ================================================================
+// CALCULS (chant/percages/rainures/connecteurs/charnieres/fonds)
+// Code deplace dans js/calculs.js
+// ================================================================
+
+// ================================================================
+// TIROIRS - code deplace dans js/tiroirs.js
+// ================================================================
+
+
+// ================================================================
+// CUTLIST + OPTIMISATION - code deplace dans js/cutlist.js
+// ================================================================
+
+
+/* ================================================================
+   DXF — Generation des fichiers DXF usinage
+   ----------------------------------------------------------------
+   Code deplace dans js/dxf-usinage.js
+   Charge via une balise script en fin de fichier (avant /body)
+   ================================================================ */
+
+
+// ================================================================
+// PLAN 2D - code deplace dans js/plan2d.js
+// ================================================================
+
+
+// ================================================================
+// PRIX - code deplace dans js/prix.js
+// ================================================================
+
+
+// ================================================================
+// PDF PLANS - code deplace dans js/pdf-plans.js
+// ================================================================
+
+
+/* ============================================================
+   12. MAIN -- Chef d'orchestre : evenements, lancerCalcul, tout telecharger
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE WOODER — main.js
+   Point d'entrée : événements DOM, lancerCalcul(), tout télécharger.
+   C'est le chef d'orchestre — il appelle les fonctions des autres
+   modules dans le bon ordre.
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Persistance localStorage (auto-sauvegarde des tarifs & choix) ──
+// Liste des IDs à sauvegarder (prix + choix projet + dimensions + paramètres fabrication)
+var STORAGE_KEY = 'wooder_prefs_v1';
+var STORAGE_IDS = [
+  // Choix du projet
+  'selModeMat','selMat19','selMatFacades','selMatFond',
+  'paramTypeConnecteur','paramTypeCharniere','paramTypeCoulisse',
+  // Prix panneaux
+  'prixPan19','prixFacades','prixPan8',
+  // Dimensions panneaux bruts
+  // Dimensions planches brutes : lues directement sur le matériau
+  // sélectionné via le catalogue (plus d'inputs paramPannW/H/FondW/FondH).
+  'paramTrait',
+  // Quincaillerie — assemblage
+  'prixExcentrique','prixGoujon','prixTaquet',
+  'prixLamello','prixClamex','prixTenso',
+  'prixDomino','prixCabineo8','prixCabineo12',
+  // Charnières
+  'prixCharniere','prixCharnClipTop','prixCharnSimple',
+  // Tiroirs
+  'prixTiroirTandem','prixTiroirTandem560','prixTiroirTandem19','prixTiroirLegra','prixTiroirMovento',
+  'prixTiroirArcitech','prixTiroirAtira','prixTiroirQuadro',
+  'prixTiroirNovaPro','prixTiroirDynapro','prixTiroir',
+  'prixPanierCoulissant','prixBarrePenderie',
+  // Fixations
+  'prixPieds','prixFixMurale',
+  // Services & main-d'œuvre
+  'prixChant','prixDecoupe','prixUsinage','prixTauxHoraire','prixLivraison',
+  // Coefficients
+  'prixCoeff','prixTVA',
+  // Sélection chant sur meuble
+  'selChant',
+  // Paramétrage Fabrication
+  'paramRainLargeur','paramRainDistBord','paramRainProfLateral','paramRainProfMontant',
+  'paramFondEpaisseur',
+  'paramExcAvant','paramTouAvant','paramDiamPerc','paramDiamExc','paramDiamTou',
+  'paramBord','paramProfTou','paramProfTou2',
+  'paramClamexAvant','paramClamexLong','paramClamexProf','paramClamexLarg',
+  'paramClamexAcces','paramClamexAccesOff',
+  'paramBiscuitLong','paramBiscuitProf','paramBiscuitLarg','paramBiscuitSeuil',
+  'paramCabAvant','paramCabNbBout','paramCabSeuil',
+  'paramCabPocheL','paramCabPocheW','paramCabPocheD',
+  'paramCabHole','paramCabDiamForage','paramCabNbForages',
+  'paramEpTiroirBois'
+];
+
+// (catalogue chants : voir js/catalogues.js)
+
+function sauvegarderPrefs() {
+  try {
+    var data = {};
+    for (var i = 0; i < STORAGE_IDS.length; i++) {
+      var el = document.getElementById(STORAGE_IDS[i]);
+      if (el) data[STORAGE_IDS[i]] = el.value;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) { /* silencieux : localStorage peut être indisponible */ }
+}
+
+function restaurerPrefs() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    var nb = 0;
+    for (var id in data) {
+      var el = document.getElementById(id);
+      if (el && data[id] != null) { el.value = data[id]; nb++; }
+    }
+    // Re-déclencher les toggles (pour afficher/cacher les zones conditionnelles)
+    try { if (typeof toggleModeMat === 'function') toggleModeMat(); } catch(e){}
+    try { if (typeof toggleParamsConnecteur === 'function') toggleParamsConnecteur(); } catch(e){}
+    try { if (typeof toggleParamsTiroir === 'function') toggleParamsTiroir(); } catch(e){}
+    return nb > 0;
+  } catch (e) { return false; }
+}
+
+function installerAutoSauvegarde() {
+  var handler = function() { sauvegarderPrefs(); };
+  for (var i = 0; i < STORAGE_IDS.length; i++) {
+    var el = document.getElementById(STORAGE_IDS[i]);
+    if (el) {
+      el.addEventListener('change', handler);
+      if (el.tagName === 'INPUT') el.addEventListener('input', handler);
+    }
+  }
+}
+
+// ── Initialisation ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+
+  // Charger et rendre les catalogues AVANT tout le reste :
+  // les inputs (prixClamex, prixTiroirTandem...) sont créés dynamiquement
+  // ici, donc ils doivent exister avant que restaurerPrefs() tente d'y
+  // écrire des valeurs sauvegardées et avant que prix.js les lise.
+  if (typeof initCatalogues === 'function') initCatalogues();
+  if (typeof initChants === 'function') initChants();
+
+  // Restaurer les préférences sauvegardées
+  var prefsRestored = restaurerPrefs();
+  installerAutoSauvegarde();
+
+  // Après restauration, resynchroniser les prix actifs matériaux
+  // (au cas où un matériau était sélectionné avant sauvegarde)
+  if (typeof _resyncPrixMateriauxActifs === 'function') _resyncPrixMateriauxActifs();
+  // Rafraîchir le select des chants après restauration (au cas où selChant
+  // a été restauré avant que CATALOG.chants soit peuplé, situation improbable
+  // mais protection ceinture+bretelles)
+  if (typeof populateSelectChant === 'function') populateSelectChant();
+
+  if (prefsRestored) {
+    setTimeout(function () {
+      setHeader('Tarifs restaurés depuis la session précédente');
+    }, 300);
+  }
+
+  // Vérification chargement des bibliothèques externes (CDN)
+  // Important sur iOS/iPad où Mail/Fichiers peut bloquer les ressources externes
+  var libsManquantes = [];
+  if (typeof pdfjsLib === 'undefined') libsManquantes.push('PDF.js');
+  if (typeof JSZip    === 'undefined') libsManquantes.push('JSZip');
+  if (typeof window.jspdf === 'undefined') libsManquantes.push('jsPDF');
+  if (libsManquantes.length > 0) {
+    var dz = document.getElementById('dropZone');
+    if (dz) {
+      var avert = document.createElement('div');
+      avert.className = 'msg-err';
+      avert.style.marginBottom = '10px';
+      avert.innerHTML =
+        '<b>⚠ Bibliothèques non chargées :</b> ' + libsManquantes.join(', ') + '.<br>' +
+        (IS_IOS
+          ? 'Sur iPad/iPhone ouvert depuis un email, iOS bloque parfois les scripts externes. '
+          + 'Solution : téléchargez le fichier dans l\'app <b>Fichiers</b>, puis ouvrez-le depuis Safari (pas depuis Mail). '
+          + 'Ou utilisez l\'onglet <b>Copier-coller</b> en attendant.'
+          : 'Vérifiez votre connexion internet et rechargez la page.');
+      dz.parentNode.insertBefore(avert, dz);
+    }
+  }
+
+  // Upload PDF
+  var fi = document.getElementById('fileInput');
+  var dz = document.getElementById('dropZone');
+
+  fi.addEventListener('change', function (e) {
+    var files = e.target.files;
+    // Debug visible pour diagnostic iOS
+    if (!files || files.length === 0) {
+      setPdfStatus('⚠ Aucun fichier sélectionné. Si vous en avez sélectionné un, c\'est un bug iOS connu — essayez à nouveau.', 'msg-err');
+      return;
+    }
+    setPdfStatus('<span class="spinner"></span> ' + files.length + ' fichier(s) reçu(s) — lecture en cours...', 'loading');
+
+    // Traiter chaque fichier avec gestion d'erreur individuelle
+    var filesArray = Array.from(files);
+    // Ne PAS réinitialiser value immédiatement sur iOS (bug connu)
+    setTimeout(function () {
+      filesArray.forEach(function (f) {
+        try {
+          if (f.size === 0) {
+            setPdfStatus('⚠ Fichier "' + f.name + '" vide ou illisible (0 octets). Sur iPad, essayez de le re-télécharger dans l\'app Fichiers.', 'msg-err');
+            return;
+          }
+          if (f.size > 50 * 1024 * 1024) {
+            setPdfStatus('⚠ Fichier "' + f.name + '" trop volumineux (>50 Mo). Safari iOS limite la taille.', 'msg-err');
+            return;
+          }
+          lirePDF(f);
+        } catch (err) {
+          setPdfStatus('⚠ Erreur sur ' + f.name + ' : ' + err.message, 'msg-err');
+        }
+      });
+      // Réinitialisation tardive (après traitement)
+      try { fi.value = ''; } catch (e2) {}
+    }, 100);
+  });
+  ['dragenter','dragover'].forEach(function (ev) {
+    dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('drag-over'); });
+  });
+  ['dragleave','drop'].forEach(function (ev) {
+    dz.addEventListener(ev, function (e) {
+      e.preventDefault(); dz.classList.remove('drag-over');
+      if (ev === 'drop') Array.from(e.dataTransfer.files)
+        .filter(function (f) { return f.type === 'application/pdf'; })
+        .forEach(lirePDF);
+    });
+  });
+
+  // Parser texte manuel
+  document.getElementById('btnParser').addEventListener('click', function () {
+    var txt = document.getElementById('txtPDF').value.trim();
+    if (!txt) { showMsg('Veuillez coller le texte.', 'err'); return; }
+    traiterTexte(txt, 'Meuble collé');
+  });
+
+  // Exemple
+  document.getElementById('btnExemple').addEventListener('click', function () {
+    switchTab('texte');
+    document.getElementById('txtPDF').value =
+      'Designation\tLongueur\tLargeur\tEpaisseur\tNombre\n' +
+      'Panneau superieur\t1361\t400\t19\t1\n' +
+      'Panneau inferieur\t1361\t381\t19\t1\n' +
+      'Panneau gauche\t2500\t400\t19\t1\n' +
+      'Panneau droit\t2500\t400\t19\t1\n' +
+      'Fond du meuble\t2481\t1361\t8\t1\n' +
+      'Montant intermediaire 1\t2422\t381\t19\t1\n' +
+      'Montant intermediaire 2\t2422\t381\t19\t1\n' +
+      'Etageres colonne 1\t671\t381\t19\t8\n' +
+      'Etageres colonne 2\t671\t360\t19\t4\n' +
+      'Portes\t788\t331\t19\t4\n' +
+      'Tiroirs\t665\t259\t19\t6\n' +
+      'Plinthe\t1361\t100\t19\t1';
+    document.getElementById('btnParser').click();
+  });
+
+  // Vider
+  document.getElementById('btnVider').addEventListener('click', function () {
+    if (!confirm('Vider tous les meubles ?')) return;
+    window._meubles = [];
+    afficherListeMeubles();
+    afficherToutesPieces();
+    document.getElementById('secPieces').classList.add('hidden');
+    document.getElementById('badgeImport').textContent = '0 meuble';
+    setHeader('');
+    showMsg('', 'ok');
+  });
+
+  // Calculer
+  document.getElementById('btnCalculer').addEventListener('click', lancerCalcul);
+
+  // Prix
+  document.getElementById('btnCalculPrix').addEventListener('click', calculerPrix);
+});
+
+// ── Lancer le calcul complet ──────────────────────────────────────
+// ================================================================
+// COLONNES (ordre UI) - code deplace dans js/colonnes.js
+// ================================================================
+
+function lancerCalcul() {
+  if (!window._meubles.length) {
+    showMsg('Importez au moins un PDF.', 'err');
+    return;
+  }
+  lireParams();
+  syncGlobaux();
+
+  // Construire la liste plate de toutes les pièces
+  var items = [];
+  for (var mi = 0; mi < window._meubles.length; mi++) {
+    var m = window._meubles[mi];
+    for (var pi = 0; pi < m.pieces.length; pi++) {
+      var p    = m.pieces[pi];
+      var type = p._typeForce || detectType(p.designation);
+      items.push({
+        p:           p,
+        meuble:      m.nom,
+        meubleIdx:   mi,
+        type:        type,
+        sens:        (type === 'porte' && p.nombre >= 2) ? 'paire' : 'gauche',
+        ep:          m.epaisseur   || 19,
+        debLat:      m.debutPerc   || 96,
+        margeBas:    m.margeBas    || 100,
+        prof:        m.profondeur  || 600,
+        typePortes:  m.typePortes  || 'applique',
+        typePlinthe: m.typePlinthe || 'encastree'
+      });
+    }
+  }
+  window._itemsCache = items;
+  // Classifier les montants (plein vs étagère) AVANT tous les calculs
+  classifierMontants(items);
+
+  // Vider les tableaux résultats
+  ['tbodyChant','tbodyPerc','tbodyRain','tbodyConn','tbodyCharn','tbodyCutlist','tbodyPrix','tbodyFond','tbodyTiroirs']
+    .forEach(function (id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
+
+  // Lancer les modules dans l'ordre
+  calculerChant(items);       // → calculs.js
+  calculerPercages(items);    // → calculs.js
+  calculerRainures(items);    // → calculs.js
+  calculerConnecteurs(items); // → calculs.js
+  calculerCharnieres(items);  // → calculs.js
+  calculerFonds(items);       // → calculs.js
+  calculerTiroirs(items);     // → tiroirs
+  dessinerPlan(items);        // → plan2d.js
+  calculerCutlist(items);     // → cutlist.js → lancerOptimisation() → afficherSectionPrix()
+
+  // Si montants intermédiaires → afficher section colonnes AVANT les calculs
+  var hasMonts = items.some(function(it) { return it.type === 'montant' && it._montantType !== 'etagere'; });
+  if (hasMonts) {
+    afficherSectionColonnes(items);
+    return; // Les calculs seront lancés depuis btnValiderColonnes
+  }
+
+  // Pas de montants → calcul direct
+  ['tbodyChant','tbodyPerc','tbodyRain','tbodyConn','tbodyCharn','tbodyCutlist','tbodyPrix','tbodyFond','tbodyTiroirs']
+    .forEach(function (id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  calculerChant(items);
+  calculerPercages(items);
+  calculerRainures(items);
+  calculerConnecteurs(items);
+  calculerCharnieres(items);
+  calculerFonds(items);
+  calculerTiroirs(items);
+  dessinerPlan(items);
+  calculerCutlist(items);
+  // Mise à jour des métriques dans les en-têtes de carte + scroll vers 1ère carte
+  if (typeof updateResultMetrics === 'function') {
+    try { updateResultMetrics(); } catch(e) { console.error('updateResultMetrics err:', e); }
+  }
+  var firstCard = document.getElementById('cardChant');
+  if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  afficherBoutonTout();
+}
+
+// ── Tout télécharger (ZIP) ────────────────────────────────────────
+function afficherBoutonTout() {
+  afficherStickyBar();
+  // Bouton sticky unifié : scroll vers la carte Récupérer fichiers pour fabrication
+  var _rec = document.getElementById('btnRecupFichiers');
+  if (_rec) _rec.onclick = (typeof scrollToFichiersFabrication === 'function') ? scrollToFichiersFabrication : null;
+  // -- Boutons "Tous connecteurs" (conservés dans la section DXF existante) --
+  var _ztc = document.getElementById('zoneTousConnecteurs');
+  if (_ztc) _ztc.classList.remove('hidden');
+  var _b = [
+    ['btnZipTousComplet',    telechargerZipTousConnecteurs],
+    ['btnZipTousCompletDXF', telechargerZipTousConnecteurs],
+    ['btnPDFSeulTousConn',   telechargerPDFSeulTousConnecteurs],
+    ['btnDXFSeulTousConn',   telechargerDXFSeulTousConnecteurs],
+    ['btnPDFSeulTousConnDXF',telechargerPDFSeulTousConnecteurs],
+    ['btnDXFSeulTousConnDXF',telechargerDXFSeulTousConnecteurs]
+  ];
+  for (var _i=0;_i<_b.length;_i++) {
+    var _el = document.getElementById(_b[_i][0]);
+    if (_el) _el.onclick = _b[_i][1];
+  }
+
+  var c = document.getElementById('btnsPDFMeubles'), html = '';
+  for (var mi = 0; mi < window._meubles.length; mi++) {
+    html += '<button class="btn btn-gold" style="display:block;width:100%;text-align:left;margin-bottom:5px" ' +
+      'onclick="telechargerPDFMeuble(' + mi + ')">📐 Plans PDF — ' + esc(window._meubles[mi].nom) + '</button>';
+  }
+  if (!html) html = '<button class="btn btn-gold" onclick="genererPlansPDF()">📐 Générer plans PDF</button>';
+  if (c) c.innerHTML = html;
+  var bp = document.getElementById('badgePDF');
+  if (bp) bp.textContent = window._meubles.length + ' meuble' + (window._meubles.length > 1 ? 's' : '');
+  if (document.getElementById('secPDF')) ouvrirSection('secPDF');
+}
+
+// FIX: sauvegarde/restauration sync → pas de race condition
+function telechargerPDFMeuble(idx) {
+  var saved  = window._itemsCache;
+  window._itemsCache = (saved || []).filter(function (it) { return it.meubleIdx === idx; });
+  if (!window._itemsCache.length) { alert('Aucune pièce.'); window._itemsCache = saved; return; }
+  genererPlansPDF(window._meubles[idx] ? window._meubles[idx].nom : 'Meuble');
+  window._itemsCache = saved;
+}
+
+function toutTelecharger() {
+  var zip = new JSZip();
+  var ep  = parseFloat(document.getElementById('epaisseur').value) || 19;
+  var items = window._itemsCache || [];
+
+  // ── Dossiers racine organisés par type de fichier ─────────────────
+  var fDXF   = zip.folder('DXF');
+  var fMPR   = zip.folder('MPR');
+  var fGCODE = zip.folder('G-code');
+  var fDWG   = zip.folder('DWG');
+  var fCSV   = zip.folder('CutList');
+  var fPlan  = zip.folder('Plan2D');
+
+  // DWG : placeholder (format binaire propriétaire Autodesk, non généré côté navigateur)
+  fDWG.file('LISEZ-MOI.txt',
+    'Format DWG non disponible dans cette version.\r\n\r\n' +
+    'Les fichiers DXF du dossier DXF/ sont directement importables dans :\r\n' +
+    '  - AutoCAD, Fusion 360, Inventor\r\n' +
+    '  - Rhino, SketchUp, Illustrator\r\n' +
+    '  - la majorite des logiciels CAO/DAO\r\n\r\n' +
+    'Le format DWG est binaire et proprietaire Autodesk. Sa generation\r\n' +
+    'cote navigateur necessiterait une librairie commerciale payante.\r\n'
+  );
+
+  // Helper : cache des sous-dossiers DXF par pièce (1 dossier par designation)
+  var _dxfFolders = {};
+  function dxfFolder(piece) {
+    var name = nomF(piece.designation || piece);
+    if (!_dxfFolders[name]) _dxfFolders[name] = fDXF.folder(name);
+    return _dxfFolders[name];
+  }
+
+  // ── DXF Perçages (dans le dossier de chaque pièce) ────────────────
+  if (window._percDets) {
+    for (var i = 0; i < window._percDets.length; i++) {
+      var d  = window._percDets[i];
+      var iEp = d.ep || ep;
+      var debut = Math.max(0, d.type === 'lateral' ? d.debLat : d.debLat - iEp);
+      var hP  = Math.max(d.p.longueur, d.p.largeur), posY = [], y = debut;
+      while (y <= hP - d.margeBas) { posY.push(parseFloat(y.toFixed(1))); y += PAS; }
+      var folder = dxfFolder(d.p);
+      var estPMt = d._montantType === 'etagere';
+      if (estPMt) {
+        folder.file('tourillons.dxf', genDXFTourillonMontant(d.p));
+      } else if (d.type === 'montant') {
+        folder.file('percages_faceA.dxf', genDXF(d.p, d.type, d.rang, posY, iEp, false, false));
+        folder.file('percages_faceB.dxf', genDXF(d.p, d.type, d.rang, posY, iEp, false, true));
+      } else {
+        folder.file('percages.dxf', genDXF(d.p, d.type, d.rang, posY, iEp, false, false));
+      }
+    }
+  }
+
+  // ── DXF Panneaux sup/inf (contour + rainure fond) ────────────────
+  for (var pi = 0; pi < items.length; pi++) {
+    if (items[pi].type === 'panneau') {
+      var pp = items[pi].p;
+      var iEpP = items[pi].ep || ep;
+      dxfFolder(pp).file('contour.dxf', genDXF(pp, 'panneau', 0, [], iEpP, false, false));
+    }
+  }
+
+  // ── DXF Tourillons adjacents (pièces adjacentes aux petits montants) ──
+  if (window._tourillonsAdjacents && window._tourillonsAdjacents.length > 0) {
+    for (var ta = 0; ta < window._tourillonsAdjacents.length; ta++) {
+      var adj = window._tourillonsAdjacents[ta];
+      dxfFolder(adj.p).file('tourillons_adjacents.dxf',
+        genDXFTourillonAdjacent(adj.p, [adj.xTou], adj.p.designation + ' (adj. ' + adj.sourceMontant + ')'));
+    }
+  }
+
+  // ── DXF Rainures ──────────────────────────────────────────────────
+  if (window._piecesRain) {
+    for (var j = 0; j < window._piecesRain.length; j++) {
+      var dr = window._piecesRain[j];
+      dxfFolder(dr.p).file('rainure.dxf', genDXFRain(dr.p, window._profMeubleRain, dr.type));
+    }
+  }
+
+  // ── DXF Charnières (portes) ──────────────────────────────────────
+  if (window._charnDets) {
+    for (var m = 0; m < window._charnDets.length; m++) {
+      var dc = window._charnDets[m];
+      dxfFolder(dc.p).file('charnieres.dxf', genDXFPorte(dc.p, dc.posY, dc.axisCuvette));
+    }
+  }
+
+  // ── DXF Étagères (contour simple) ─────────────────────────────────
+  for (var ei = 0; ei < items.length; ei++) {
+    if (items[ei].type === 'etagere') {
+      var pe = items[ei].p, lE = Math.max(pe.longueur, pe.largeur), wE = Math.min(pe.longueur, pe.largeur);
+      var L2 = dxfL;
+      var oe = dxfH(lE, wE) + dxfTbl([{ n: 'CONTOUR', col: '7' }]);
+      oe += L2(0,'SECTION') + L2(2,'ENTITIES'); oe = dxfCont(oe, lE, wE);
+      oe += L2(0,'TEXT') + L2(8,'CONTOUR') + L2(10,'5') + L2(20, wE+10) + L2(30,'0') + L2(40,'5') + L2(1, pe.designation + ' ' + lE + 'x' + wE + 'mm');
+      oe += L2(0,'ENDSEC') + L2(0,'EOF');
+      dxfFolder(pe).file('contour.dxf', oe);
+    }
+  }
+
+  // ── DXF Connecteurs (async, vue de face du joint entre 2 pièces) ──
+  // Les liaisons sont entre 2 pièces donc rangées dans DXF/_Connecteurs/
+  var connPromises = [];
+  if (window._liaisons && window._liaisons.length > 0) {
+    var isClamexZip  = (TYPE_CONNECTEUR === 'clamex_biscuit' || TYPE_CONNECTEUR === 'clamex_p14');
+    var isCabineoZip = (TYPE_CONNECTEUR === 'cabineo_8' || TYPE_CONNECTEUR === 'cabineo_12');
+    var suffixConn = isClamexZip ? '_clamex.dxf' : isCabineoZip ? '_cabineo.dxf' : '_goujons.dxf';
+    var fConn = fDXF.folder('_Connecteurs');
+    for (var ci=0; ci<window._liaisons.length; ci++) {
+      (function(l, i) {
+        connPromises.push(new Promise(function(resolve) {
+          genDXFConnBlob(l, function(blob) {
+            var reader = new FileReader();
+            reader.onload = function() {
+              fConn.file(nomF(l.designation+'_'+i)+suffixConn, reader.result);
+              resolve();
+            };
+            reader.onerror = function() { resolve(); };
+            reader.readAsArrayBuffer(blob);
+          });
+        }));
+      })(window._liaisons[ci], ci);
+    }
+  }
+
+  // ── CSV CutList ───────────────────────────────────────────────────
+  if (window._cutlistPieces) {
+    function csvStr(pieces) {
+      var l = ['"Name","Width","Length","Thickness","Qty","Material","Comment"'];
+      for (var ci = 0; ci < pieces.length; ci++) {
+        var pc = pieces[ci];
+        l.push('"' + pc.designation.replace(/"/g,"'") + '",' + pc.largeur + ',' + pc.longueur + ',' + pc.epaisseur + ',' + pc.nombre + ',"' + pc.materiau.replace(/"/g,"'") + '","Panneau brut 2800x2070mm"');
+      }
+      return '\ufeff' + l.join('\r\n');
+    }
+    var p19 = window._cutlistPieces.filter(function (p) { return p.epaisseur === 19; });
+    var p8  = window._cutlistPieces.filter(function (p) { return p.epaisseur === FOND_EPAISSEUR; });
+    if (p19.length) fCSV.file('cutlist-19mm.csv',  csvStr(p19));
+    if (p8.length)  fCSV.file('cutlist-' + FOND_EPAISSEUR + 'mm.csv',   csvStr(p8));
+    fCSV.file('cutlist-complet.csv', csvStr(window._cutlistPieces));
+  }
+
+  // Résultats d'optimisation (textes courts)
+  if (window._opti19) fCSV.file('opti-19mm.txt', 'Panneaux: ' + window._opti19.nbPanneaux + '\r\nML decoupe: ' + window._opti19.mlDecoupe + '\r\nChute: ' + window._opti19.tauxChute + '%\r\n');
+  if (window._opti8)  fCSV.file('opti-' + FOND_EPAISSEUR + 'mm.txt',  'Panneaux: ' + window._opti8.nbPanneaux  + '\r\nML decoupe: ' + window._opti8.mlDecoupe  + '\r\nChute: ' + window._opti8.tauxChute  + '%\r\n');
+
+  // ── Plan 2D PNG ───────────────────────────────────────────────────
+  var canvas = document.getElementById('planCanvas');
+  if (canvas && canvas.width > 0) {
+    var data = canvas.toDataURL('image/png').split(',')[1];
+    fPlan.file('plan-2D.png', data, { base64: true });
+  }
+
+  // ── MPR + G-code (module gcode.js) — 1 fichier par pièce ──────────
+  var nbMPR = 0, nbGCODE = 0;
+  if (typeof buildJobs === 'function') {
+    try {
+      var machineJobs = buildJobs();
+      if (machineJobs && machineJobs.length > 0) {
+        machineJobs.forEach(function(job) {
+          var fname = nomF(job.designation || job.piece_id);
+          if (job.nombre > 1) fname += '_x' + job.nombre;
+          if (typeof postprocGrbl === 'function') {
+            fGCODE.file(fname + '.gcode', postprocGrbl(job));
+            nbGCODE++;
+          }
+          if (typeof postprocMpr === 'function' && job.type !== 'fond_calc' && job.type !== 'fond') {
+            fMPR.file(fname + '.mpr', postprocMpr(job));
+            nbMPR++;
+          }
+        });
+        if (typeof _buildReadme === 'function') {
+          fGCODE.file('LISEZ-MOI.txt', _buildReadme(machineJobs));
+        }
+      }
+    } catch (e) { console.error('Erreur ajout G-code/MPR :', e); }
+  }
+
+  // ── Manifest global + finalisation après attente des promesses async ──
+  Promise.all(connPromises).then(function() {
+    var manifest = [
+      'THE WOODER - Projet complet',
+      '===========================',
+      '',
+      'Date d\'export : ' + new Date().toISOString().replace('T',' ').substring(0,19),
+      'Meubles       : ' + ((window._meubles || []).length),
+      'Pieces        : ' + ((window._cutlistPieces || []).length),
+      '',
+      'Organisation du ZIP',
+      '-------------------',
+      '  DXF/<piece>/          Un dossier par piece, avec tous les DXF associes',
+      '                        (contour, percages, rainure, charnieres, etc.)',
+      '  DXF/_Connecteurs/     DXF des joints entre pieces (Clamex/Cabineo/excentriques)',
+      '  MPR/                  Un .mpr par piece pour centre d\'usinage Homag/Weeke woodWOP',
+      '  G-code/               Un .gcode par piece pour CNC 3 axes (GRBL/Mach3/LinuxCNC)',
+      '  DWG/                  Non disponible (voir LISEZ-MOI.txt)',
+      '  CutList/              Listes de debit CSV pour optimisation de coupe',
+      '  Plan2D/               Plan 2D cote en PNG',
+      '',
+      'Totaux',
+      '------',
+      '  DXF pieces    : ' + Object.keys(_dxfFolders).length,
+      '  MPR           : ' + nbMPR,
+      '  G-code        : ' + nbGCODE,
+      '',
+      'Les plans PDF par meuble se telechargent individuellement depuis',
+      'la carte "Fichiers de fabrication > PDF" dans l\'outil.',
+      ''
+    ].join('\r\n');
+    zip.file('LISEZ-MOI.txt', manifest);
+
+    zip.generateAsync({ type: 'blob' }).then(function (blob) {
+      telechargerBlob(blob, 'wooder-projet-complet.zip');
+    });
+  });
+}
+
+
+
+// ================================================================
+// POST-PROCESSEUR G-CODE GRBL - code deplace dans js/gcode.js
+// ================================================================
+
+// ================================================================
+// POST-PROCESSEUR MPR - code deplace dans js/mpr.js
+// ================================================================
+
+// ═════════════════════════════════════════════════════════════════
+// RACCOURCI STICKY BAR — scroll vers la carte Fichiers fabrication
+// ═════════════════════════════════════════════════════════════════
+
+function scrollToFichiersFabrication() {
+  var card = document.getElementById('cardFichiers');
+  if (!card) {
+    // Fallback : essayer l'ancienne section DXF si la nouvelle structure n'est pas en place
+    card = document.getElementById('secDXF') || document.getElementById('secResultats');
+  }
+  if (!card) return;
+  // Auto-ouvrir le parent si c'est une section repliée
+  var parentSec = card.closest ? card.closest('.section') : null;
+  if (parentSec) {
+    var body = parentSec.querySelector('.section-body');
+    var arrow = parentSec.querySelector('.section-arrow');
+    if (body && !body.classList.contains('open')) body.classList.add('open');
+    if (arrow && !arrow.classList.contains('open')) arrow.classList.add('open');
+  }
+  // Auto-ouvrir la carte elle-même
+  if (card.classList && card.classList.contains('result-card')) {
+    card.classList.add('open');
+  }
+  // Scroll smooth
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ═════════════════════════════════════════════════════════════════
+// TÉLÉCHARGEMENTS INDIVIDUELS
+// ═════════════════════════════════════════════════════════════════
+
+// Téléchargement individuel d'un G-code
+function telechargerGcodeIndividuel(idx) {
+  var jobs = buildJobs();
+  var job = jobs[idx];
+  if (!job) return;
+  var gcode = postprocGrbl(job);
+  var blob = new Blob([gcode], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = job.piece_id + '.gcode';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ZIP de tous les DXF (réutilise l'infrastructure de toutTelecharger
+// mais filtré : seuls les dossiers 01- à 07- et 10-, pas de MPR/G-code/CSV/PDF)
+function telechargerZipDXFSeul() {
+  if (typeof JSZip === 'undefined') { alert('JSZip non chargé.'); return; }
+  if (typeof genDXF !== 'function') { alert('Module DXF non chargé.'); return; }
+
+  var zip = new JSZip();
+  var ep  = parseFloat(document.getElementById('epaisseur').value) || 19;
+  var items = window._itemsCache || [];
+
+  var f01 = zip.folder('01-Lateraux'), f02 = zip.folder('02-Panneaux'),
+      f03 = zip.folder('03-Montants'), f04 = zip.folder('04-Portes'),
+      f05 = zip.folder('05-Etageres'), f06 = zip.folder('06-Rainures');
+
+  // Perçages
+  if (window._percDets) {
+    for (var i = 0; i < window._percDets.length; i++) {
+      var d  = window._percDets[i];
+      var iEp = d.ep || ep;
+      var debut = Math.max(0, d.type === 'lateral' ? d.debLat : d.debLat - iEp);
+      var hP  = Math.max(d.p.longueur, d.p.largeur), posY = [], y = debut;
+      while (y <= hP - d.margeBas) { posY.push(parseFloat(y.toFixed(1))); y += PAS; }
+      var folder = d.type === 'lateral' ? f01 : d.type === 'montant' ? f03 : f02;
+      var estPMt = d._montantType === 'etagere';
+      if (estPMt) {
+        folder.file(nomF(d.p.designation) + '_tourillons.dxf', genDXFTourillonMontant(d.p));
+      } else if (d.type === 'montant') {
+        folder.file(nomF(d.p.designation) + '_A.dxf', genDXF(d.p, d.type, d.rang, posY, iEp, false, false));
+        folder.file(nomF(d.p.designation) + '_B.dxf', genDXF(d.p, d.type, d.rang, posY, iEp, false, true));
+      } else {
+        folder.file(nomF(d.p.designation) + '.dxf', genDXF(d.p, d.type, d.rang, posY, iEp, false, false));
+      }
+    }
+  }
+
+  // Panneaux sup/inf
+  for (var pi = 0; pi < items.length; pi++) {
+    if (items[pi].type === 'panneau') {
+      var pp = items[pi].p;
+      var iEpP = items[pi].ep || ep;
+      f02.file(nomF(pp.designation) + '.dxf', genDXF(pp, 'panneau', 0, [], iEpP, false, false));
+    }
+  }
+
+  // Tourillons adjacents
+  if (window._tourillonsAdjacents && window._tourillonsAdjacents.length > 0) {
+    var f07 = zip.folder('07-Tourillons-Adjacents');
+    for (var ta = 0; ta < window._tourillonsAdjacents.length; ta++) {
+      var adj = window._tourillonsAdjacents[ta];
+      f07.file(nomF(adj.p.designation) + '_tourillons_adj.dxf',
+               genDXFTourillonAdjacent(adj.p, [adj.xTou], adj.p.designation + ' (adj. ' + adj.sourceMontant + ')'));
+    }
+  }
+
+  // Rainures
+  if (window._piecesRain) {
+    for (var j = 0; j < window._piecesRain.length; j++) {
+      var dr = window._piecesRain[j];
+      f06.file(nomF(dr.p.designation) + '_rainure.dxf', genDXFRain(dr.p, window._profMeubleRain, dr.type));
+    }
+  }
+
+  // Charnières
+  if (window._charnDets) {
+    for (var m = 0; m < window._charnDets.length; m++) {
+      var dc = window._charnDets[m];
+      f04.file(nomF(dc.label || dc.p.designation) + '_charniere.dxf',
+               genDXFPorte(dc.p, dc.posY, dc.axisCuvette));
+    }
+  }
+
+  // Étagères (contour simple)
+  for (var ei = 0; ei < items.length; ei++) {
+    if (items[ei].type === 'etagere') {
+      var pe = items[ei].p, lE = Math.max(pe.longueur, pe.largeur), wE = Math.min(pe.longueur, pe.largeur);
+      var oe = dxfH(lE, wE) + dxfTbl([{ n: 'CONTOUR', col: '7' }]);
+      oe += dxfL(0,'SECTION') + dxfL(2,'ENTITIES'); oe = dxfCont(oe, lE, wE);
+      oe += dxfL(0,'TEXT') + dxfL(8,'CONTOUR') + dxfL(10,'5') + dxfL(20, wE+10) + dxfL(30,'0') + dxfL(40,'5') + dxfL(1, pe.designation + ' ' + lE + 'x' + wE + 'mm');
+      oe += dxfL(0,'ENDSEC') + dxfL(0,'EOF');
+      f05.file(nomF(pe.designation) + '.dxf', oe);
+    }
+  }
+
+  // Connecteurs (asynchrone)
+  var connPromises = [];
+  if (window._liaisons && window._liaisons.length > 0) {
+    var tc = (typeof TYPE_CONNECTEUR !== 'undefined') ? TYPE_CONNECTEUR : '';
+    var isCx  = (tc === 'clamex_biscuit' || tc === 'clamex_p14');
+    var isCab = (tc === 'cabineo_8' || tc === 'cabineo_12');
+    var folderName = isCx ? '05-Clamex-Biscuit' : isCab ? '05-Cabineo' : '05-Connecteurs';
+    var fConn = zip.folder(folderName);
+    var sfx = isCx ? '_clamex.dxf' : isCab ? '_cabineo.dxf' : '_goujons.dxf';
+    for (var ci=0; ci<window._liaisons.length; ci++) {
+      (function(l, i) {
+        connPromises.push(new Promise(function(resolve) {
+          genDXFConnBlob(l, function(blob) {
+            var reader = new FileReader();
+            reader.onload = function() { fConn.file(nomF(l.designation+'_'+i)+sfx, reader.result); resolve(); };
+            reader.onerror = function() { resolve(); };
+            reader.readAsArrayBuffer(blob);
+          });
+        }));
+      })(window._liaisons[ci], ci);
+    }
+  }
+
+  Promise.all(connPromises).then(function() {
+    zip.generateAsync({ type: 'blob' }).then(function(blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'wooder-dxf.zip';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  });
+}
+
+</script>
+<script src="js/catalogues.js"></script>
+<script src="js/pdf-import.js"></script>
+<script src="js/dxf-usinage.js"></script>
+<script src="js/mpr.js"></script>
+<script src="js/gcode.js"></script>
+<script src="js/plan2d.js"></script>
+<script src="js/calculs.js"></script>
+<script src="js/tiroirs.js"></script>
+<script src="js/cutlist.js"></script>
+<script src="js/prix.js"></script>
+<script src="js/colonnes.js"></script>
+<script src="js/pdf-plans.js"></script>
+<script src="js/fiche-decoupe.js"></script>
+</body>
+</html>
