@@ -2405,5 +2405,64 @@ function telechargerZipDXFSeul() {
 <script src="js/colonnes.js"></script>
 <script src="js/pdf-plans.js"></script>
 <script src="js/fiche-decoupe.js"></script>
+<script src="js/mapper-photo.js"></script>
+<script src="js/generateurs.js"></script>
+<script>
+/* ── Récepteur pipeline photo → calcul ── */
+(function() {
+  function recevoirPhoto() {
+    var params = new URLSearchParams(window.location.search);
+    var b64 = params.get('photo');
+    if (!b64) return;
+
+    try {
+      var jsonStr = decodeURIComponent(escape(atob(
+        b64.replace(/-/g, '+').replace(/_/g, '/')
+      )));
+      var photoData = JSON.parse(jsonStr);
+    } catch(e) {
+      console.error('[photo-receiver] Décodage échoué:', e);
+      return;
+    }
+
+    if (typeof mapperJSON !== 'function') {
+      console.error('[photo-receiver] mapperJSON introuvable');
+      return;
+    }
+
+    var plans = mapperJSON(photoData);
+    if (window._meubles) window._meubles.length = 0;
+
+    var nbOk = 0;
+    for (var i = 0; i < plans.length; i++) {
+      var plan = plans[i];
+      if (!plan.supported) {
+        console.warn('[photo-receiver] Non supporté:', plan.reason);
+        continue;
+      }
+      var genFn = window[plan.generator];
+      if (typeof genFn !== 'function') {
+        console.warn('[photo-receiver] Générateur introuvable:', plan.generator);
+        continue;
+      }
+      ajouterMeubleGenere(genFn(plan.L, plan.H, plan.P, plan.opts));
+      nbOk++;
+    }
+
+    console.log('[photo-receiver] ' + nbOk + '/' + plans.length + ' meubles générés');
+
+    if (nbOk > 0) {
+      var cible = document.getElementById('listeMeubles') || document.getElementById('secMeubles');
+      if (cible) setTimeout(function() { cible.scrollIntoView({ behavior: 'smooth' }); }, 300);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', recevoirPhoto);
+  } else {
+    recevoirPhoto();
+  }
+})();
+</script>
 </body>
 </html>
