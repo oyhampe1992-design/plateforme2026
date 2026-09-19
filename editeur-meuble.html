@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Éditeur de meuble — the wooder</title>
+<link rel="stylesheet" href="wooder-fonts.css"><!-- charte The Wooder -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root { --text:#1f1f1d; --muted:#6b6b66; --line:#e3dfd3; --accent: #4F5E3C; --sage:#A7B98C; --sage-soft:#DCE6CF; --sage-deep:#4F5E3C; }
+    * { box-sizing: border-box; }
+    body { margin:0 auto; padding:24px 20px 80px; max-width:1500px; font-family:'Lato',system-ui,sans-serif; color:var(--text); background:#faf8f2; }
+    /* 2D à gauche, 3D à droite. En dessous de 1050 px (tablette portrait,
+       téléphone) les deux colonnes se rangent l'une sous l'autre. */
+    .deux-colonnes { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:start; }
+    @media (max-width:1050px) { .deux-colonnes { grid-template-columns:1fr; } }
+    /* la 3D reste visible pendant qu'on fait défiler l'éditeur */
+    @media (min-width:1051px) { .colonne-3d { position:sticky; top:12px; } }
+    .barre-meubles { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    /* Éditeur en plein écran : il recouvre la page pour dessiner au large,
+       sur tablette notamment. Le dessin est en largeur 100 %, il s'adapte
+       tout seul ; aucun re-rendu à déclencher. */
+    #cardEditeur.plein-ecran {
+      position:fixed; inset:0; z-index:999; margin:0; border-radius:0;
+      overflow:auto; padding:16px; background:#fff;
+    }
+    h1 { font-family:'MADE Tommy',Georgia,serif; font-size:22px; font-weight:700; margin:0 0 4px; }
+    .subtitle { color:var(--muted); font-size:14px; margin:0 0 20px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; margin:0 0 18px; }
+    label { font-size:13px; color:var(--muted); display:block; margin:0 0 4px; }
+    input[type=number], input[type=text] { width:120px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:16px; }
+    input[type=text]#nom { width:220px; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+    button { font:inherit; cursor:pointer; border-radius:8px; padding:10px 16px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-weight:500; min-height:42px; }
+    button.ghost { background:#fff; color:var(--accent); }
+    button:disabled { opacity:.5; cursor:default; }
+    .tabs { display:flex; gap:8px; margin:0 0 18px; flex-wrap:wrap; }
+    .tab { border:1.5px solid var(--accent); background:#fff; color:var(--accent); font-weight:600; }
+    .tab.actif { background:var(--accent); color:#fff; }
+    .hidden { display:none; }
+    .bar { position:sticky; bottom:0; background:#faf8f2; padding:12px 0 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--line); margin-top:16px; }
+    .tag { font-size:13px; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Éditeur de meuble</h1>
+  <p class="subtitle" id="sousTitre">Dessine ton meuble ; ajoute-en d'autres à côté, dessus ou suspendus.</p>
+
+  <!-- ── PLAN DE LA PIÈCE : étape optionnelle, repliée par défaut ── -->
+  <div id="vueProjet" class="hidden">
+    <div class="card">
+      <div id="projet"></div>
+    </div>
+    <!-- Vue 3D de TOUTE la pièce : chaque meuble est posé à sa position -->
+    <div class="card" id="card3DProjet">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:700">🧊 Vue 3D de la pièce</div>
+        <button id="btn3DProjet" class="ghost" style="margin-left:auto">Masquer</button>
+      </div>
+      <div id="vue3dProjet" style="width:100%;height:min(60vh,460px);border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#f2ece1"></div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted)">
+        <button id="btnRecadrer3DProjet" class="ghost">Recadrer</button>
+        <span class="tag" id="etat3DProjet">Dessine la pièce et pose des meubles pour les voir ici.</span>
+      </div>
+    </div>
+    <div class="bar">
+      <button id="btnDevisProjet">🧮 Générer le devis (toute la pièce)</button>
+      <button id="btnPDFProjet" class="ghost">⬇ Exporter le PDF de chaque meuble</button>
+      <span id="etatProjet" class="tag"></span>
+    </div>
+  </div>
+
+  <!-- ── ÉDITEUR ── -->
+  <div id="vueMeuble">
+    <!-- ── Barre des meubles : bascule entre les meubles de l'ensemble,
+         ajout, et accès au plan de la pièce. Toujours en tête de page. ── -->
+    <div class="card" id="cardEnsemble">
+      <div class="barre-meubles">
+        <div><label>Nom du meuble</label><input id="nom" type="text" value="Mon meuble"></div>
+        <div id="ongletsMeubles" class="barre-meubles" style="margin-left:8px"></div>
+        <button id="btnPlanPiece" class="ghost" style="margin-left:auto">🏠 Plan de la pièce</button>
+      </div>
+
+      <div id="posMeuble" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px">
+          <label>Position
+            <select id="selPosition">
+              <option value="droite">À droite</option>
+              <option value="gauche">À gauche</option>
+              <option value="dessus">Au-dessus, posé</option>
+              <option value="suspendu">Au-dessus, suspendu</option>
+            </select>
+          </label>
+          <label id="wrapRef">Par rapport à <select id="refMeuble"></select></label>
+          <label id="wrapHauteurSol" style="display:none">Dessous à
+            <input type="number" id="hauteurSol" value="1400" step="10" style="width:90px"> mm du sol</label>
+          <label>Décalage <input type="number" id="decalage" value="0" step="10" style="width:90px"> mm</label>
+          <button id="btnSupprMeuble" class="ghost">Supprimer ce meuble</button>
+        </div>
+      </div>
+    </div>
+    <!-- 2D à gauche · 3D à droite -->
+    <div class="deux-colonnes">
+      <div>
+        <!-- Sélecteur guidé du mode : visible tant qu'aucun mode n'est choisi.
+             Ensuite il disparaît — l'éditeur porte sa propre vignette
+             « Mode de construction · Changer » juste au-dessus du dessin. -->
+        <div class="card" id="cardModeMeuble">
+          <div style="font-size:15px;font-weight:700;margin-bottom:4px">🏗 Mode de construction</div>
+          <div class="tag" style="margin-bottom:10px">Comment le meuble repose-t-il au sol, et comment ses panneaux s'assemblent-ils ?</div>
+          <div id="hoteModeMeuble"></div>
+          <div id="hintCaissons" class="tag" style="margin-top:10px;display:none;background:#f3ead6;border-left:3px solid #c9b896;padding:8px 10px"></div>
+        </div>
+        <div class="card" id="cardEditeur">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+            <!-- Voir le meuble en cours d'édition, ou l'ensemble posé -->
+            <div id="bascule2D" style="display:none;gap:6px">
+              <button id="btnVueMeuble" class="tab actif active" style="min-height:36px;padding:6px 12px">🗄 Meuble seul</button>
+              <button id="btnVueEnsemble" class="tab" style="min-height:36px;padding:6px 12px">🧩 Ensemble</button>
+            </div>
+            <button id="btnPleinEcran" class="ghost" style="min-height:36px;padding:6px 12px;margin-left:auto">⤢ Plein écran</button>
+          </div>
+          <div id="editeur"></div>
+        </div>
+
+        <!-- Habillage : fileurs (jeu contre les murs / le plafond) et plinthe
+             rapportée. Rattachés au meuble : ils partent dans SON débit. -->
+        <div class="card" id="cardHabillage">
+          <div style="font-size:15px;font-weight:700;margin-bottom:4px">📏 Fileurs et plinthe</div>
+          <div class="tag" style="margin-bottom:10px">Largeur du jeu à combler, mesurée sur place. Laisse à 0 s'il n'y en a pas.</div>
+          <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+            <div><label>Fileur gauche (mm)</label><input type="number" id="filGauche" value="0" min="0" step="5" style="width:110px"></div>
+            <div><label>Fileur droit (mm)</label><input type="number" id="filDroite" value="0" min="0" step="5" style="width:110px"></div>
+            <div><label>Fileur haut (mm)</label><input type="number" id="filHaut" value="0" min="0" step="5" style="width:110px"></div>
+          </div>
+          <div class="tag" id="noteFileur" style="margin-top:8px"></div>
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px" id="ligneePlinthe">
+            <label style="display:flex;gap:7px;align-items:center;margin:0"><input type="checkbox" id="plintheActive"> Plinthe rapportée</label>
+            <div id="wrapPlintheH" style="display:none"><label>Hauteur (mm)</label><input type="number" id="plintheH" value="100" min="20" step="5" style="width:110px"></div>
+            <!-- En applique : au nu de la façade, on la voit. Encastrée : en
+                 retrait, elle dégage le pied. Les fileurs la bordent dans les
+                 deux cas et descendent jusqu'au sol. -->
+            <div id="wrapPlinthePose" style="display:none"><label>Pose</label>
+              <select id="plinthePose" style="width:210px">
+                <option value="encastree">Encastrée (en retrait)</option>
+                <option value="applique">En applique (au nu de la façade)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ajout d'un meuble : juste sous celui qu'on est en train d'éditer -->
+        <div class="card" id="cardAjout">
+          <button id="btnAjoutMeuble" class="ghost">+ Ajouter un meuble à côté, dessus ou suspendu</button>
+          <div id="choixPosition" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:8px">Où veux-tu l'ajouter ?</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+              <button class="ghost" data-pos="droite" style="text-align:left">À droite<br><span class="tag">accolé, posé au sol</span></button>
+              <button class="ghost" data-pos="gauche" style="text-align:left">À gauche<br><span class="tag">accolé, posé au sol</span></button>
+              <button class="ghost" data-pos="dessus" style="text-align:left">Au-dessus, posé<br><span class="tag">repose sur le meuble</span></button>
+              <button class="ghost" data-pos="suspendu" style="text-align:left">Au-dessus, suspendu<br><span class="tag">fixé au mur</span></button>
+            </div>
+            <button id="btnAnnulPos" class="ghost" style="margin-top:8px">Annuler</button>
+          </div>
+        </div>
+        <!-- Matériaux par élément : la même chose qu'en cliquant un panneau
+             dans la 2D, mais sous forme de liste — pratique pour habiller
+             tout un meuble sans chercher la bonne pièce à l'écran. -->
+        <div class="card" id="cardMateriaux">
+          <div style="font-size:15px;font-weight:700;margin-bottom:4px">🎨 Matériaux</div>
+          <div class="tag" style="margin-bottom:10px">Par élément, ou d'un coup pour tout le meuble. Tu peux aussi cliquer directement un panneau dans la vue 2D.</div>
+          <div id="listeMateriaux"></div>
+        </div>
+      </div>
+
+      <!-- Vue 3D de l'ensemble (wooder-3d.js) : même modèle que l'éditeur et
+           que le débit, aucune donnée intermédiaire. Reste visible pendant
+           qu'on fait défiler l'éditeur. -->
+      <div class="colonne-3d">
+        <div class="card" id="card3D">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <div style="font-size:15px;font-weight:700">🧊 Vue 3D</div>
+            <button id="btn3D" class="ghost" style="margin-left:auto">Masquer</button>
+          </div>
+          <div id="vue3d" style="width:100%;height:min(62vh,520px);border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#f2ece1"></div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted)">
+            <button id="btnOuvrir3D" class="ghost">Ouvrir portes / tiroirs</button>
+            <button id="btnRecadrer3D" class="ghost">Recadrer</button>
+            <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="chkDecors" checked> Décors</label>
+            <span class="tag">Un doigt pour tourner, deux pour zoomer.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bar" id="barMeuble">
+      <button id="btnVoirPiece" class="ghost">👁 Voir dans une pièce</button>
+      <button id="btnDevis">🧮 Générer le devis</button>
+      <button id="btnPDF" class="ghost">⬇ Exporter le PDF (débit + dessin + éclatée)</button>
+      <span id="etat" class="tag"></span>
+    </div>
+  </div>
+
+  <script src="js/textures-materiaux.js"></script>
+<script src="js/textures-decospan.js"></script>
+  <script src="js/wooder-3d.js"></script>
+  <script src="js/materiaux-default.js"></script>
+  <script src="js/wooder-mode-construction.js"></script>
+  <script src="js/wooder-plan-dessus.js"></script>
+  <script src="js/wooder-plan2d-editeur.js"></script>
+  <script src="js/wooder-projet.js"></script>
+  <script>
+    var MAT = (typeof MATERIAUX_DEFAULT !== 'undefined') ? MATERIAUX_DEFAULT : [];
+    var MAT_DEF = 'melamine_blanc_craie_19';
+
+    var vueProjet = document.getElementById('vueProjet');   // plan de la pièce (optionnel)
+    var vueMeuble = document.getElementById('vueMeuble');   // éditeur (toujours affiché)
+
+    // Un seul parcours : on arrive directement sur l'éditeur. Le plan de la
+    // pièce (vue de dessus + implantation) est une étape OPTIONNELLE, dépliée
+    // par le bouton « Plan de la pièce » — utile seulement quand on aménage
+    // une pièce entière, pas pour dessiner un meuble.
+    document.getElementById('btnPlanPiece').addEventListener('click', function () {
+      var ouvert = !vueProjet.classList.contains('hidden');
+      vueProjet.classList.toggle('hidden', ouvert);
+      this.classList.toggle('ghost', ouvert);
+      if (!ouvert) {
+        if (projet) { try { maj3DProjet(projet.getEtat()); } catch (e) {} }
+        vueProjet.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    // ── MODE PROJET ────────────────────────────────────────────────
+    var etatProjet = document.getElementById('etatProjet');
+    var projet = null;
+    // ── Vue 3D de la pièce ───────────────────────────────────────────
+    // Les meubles d'une même branche (= un mur) sont posés côte à côte, à leur
+    // position de composition. Plusieurs branches sont mises bout à bout avec
+    // un écart, faute de représenter encore les angles de la pièce en 3D.
+    var vue3dProjet = null, ECART_BRANCHE = 300;
+    function maj3DProjet(etat) {
+      if (typeof WooderVue3D === 'undefined') return;
+      var hote = document.getElementById('vue3dProjet');
+      var info = document.getElementById('etat3DProjet');
+      if (!hote || hote.style.display === 'none') return;
+      var liste = [], x0 = 0, n = 0;
+      (etat && etat.compositions || []).forEach(function (c) {
+        c.meubles.forEach(function (m, i) {
+          liste.push({ modele: m, nom: 'Mur ' + (c.mur + 1) + ' · meuble ' + (i + 1),
+                       x: x0 + (c.positions[i] ? c.positions[i].x : 0),
+                       y: (c.positions[i] ? c.positions[i].y : 0), z: 0 });
+          n++;
+        });
+        x0 += (c.espace && c.espace.L ? c.espace.L : 0) + ECART_BRANCHE;
+      });
+      if (info) {
+        info.textContent = n
+          ? n + ' meuble' + (n > 1 ? 's' : '') + ' — les murs sont mis bout à bout.'
+          : 'Dessine la pièce et pose des meubles pour les voir ici.';
+      }
+      if (!liste.length) { if (vue3dProjet) vue3dProjet.setMeubles([]); return; }
+      if (!vue3dProjet) vue3dProjet = WooderVue3D.creer(hote, { meubles: liste, materiaux: MAT });
+      else vue3dProjet.setMeubles(liste);
+    }
+    (function commandes3DProjet() {
+      var btn = document.getElementById('btn3DProjet'), ouvert = true;
+      btn.addEventListener('click', function () {
+        ouvert = !ouvert;
+        document.getElementById('vue3dProjet').style.display = ouvert ? '' : 'none';
+        btn.textContent = ouvert ? 'Masquer' : 'Afficher';
+        if (ouvert && projet) { maj3DProjet(projet.getEtat()); if (vue3dProjet) vue3dProjet.recadrer(); }
+      });
+      document.getElementById('btnRecadrer3DProjet').addEventListener('click', function () {
+        if (vue3dProjet) vue3dProjet.recadrer();
+      });
+    })();
+
+    if (typeof WooderProjet !== 'undefined') {
+      projet = WooderProjet.creer(document.getElementById('projet'), {
+        materiaux: MAT,
+        materiauDefaut: MAT_DEF,
+        onChange: function (etat) { maj3DProjet(etat); }
+      });
+    } else {
+      document.getElementById('projet').textContent = 'Module projet indisponible.';
+    }
+
+    // Envoie TOUTE la pièce (chaque meuble) à l'outil de calcul (devis).
+    document.getElementById('btnDevisProjet').addEventListener('click', function () {
+      if (!projet) { etatProjet.textContent = 'Module projet indisponible.'; return; }
+      var lst = ((projet.getEtat() || {}).meubles) || [];
+      if (!lst.length) { etatProjet.textContent = 'Aucun meuble — posez une implantation à l\'étape Pièce.'; return; }
+      var models = lst.map(function (m) {
+        var md = JSON.parse(JSON.stringify(m.modele2d || {}));
+        md._nom = 'Meuble ' + m.id;
+        return md;
+      });
+      var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(models))));
+      window.location.href = 'calcul.html?meubles=' + encodeURIComponent(b64);
+    });
+
+    document.getElementById('btnPDFProjet').addEventListener('click', function () {
+      if (!projet) { etatProjet.textContent = 'Module projet indisponible.'; return; }
+      var et = projet.getEtat();
+      var lst = (et && et.meubles) || [];
+      if (!lst.length) { etatProjet.textContent = 'Aucun meuble à exporter (posez une implantation à l\'étape Pièce).'; return; }
+      etatProjet.textContent = 'Génération de ' + lst.length + ' PDF…';
+      var i = 0;
+      function suivant() {
+        if (i >= lst.length) { etatProjet.textContent = lst.length + ' PDF enregistrés ✓'; return; }
+        var m = lst[i];
+        Promise.resolve(WooderPlan2D.exporterPDF(m.modele2d, { nom: 'Meuble_' + m.id, materiaux: MAT }))
+          .then(function () { i++; setTimeout(suivant, 300); })
+          .catch(function (e) { etatProjet.textContent = 'Erreur : ' + e; });
+      }
+      suivant();
+    });
+
+    // ── MODE MEUBLE SEUL ───────────────────────────────────────────
+    var modele = { H:2000, L:1000, P:600, ep:19, racine:{} };
+    var editeur = null;
+    var etat = document.getElementById('etat');
+
+    // ── Ensemble : le meuble principal + ceux ajoutés autour ────────
+    // Chaque entrée : { nom, pos, hSol, dec, px, py, modele, modeOK }
+    //   pos : 'base' | 'droite' | 'gauche' | 'dessus' | 'suspendu'
+    // `modele` ci-dessus reste TOUJOURS le meuble en cours d'édition ; il
+    // pointe sur ensemble[selE].modele. Le reste de la page (mode de
+    // construction, devis, PDF, réception d'analyse) continue donc de
+    // fonctionner exactement comme avant quand il n'y a qu'un meuble.
+    var ensemble = [{ nom: 'Meuble 1', pos: 'base', hSol: 0, dec: 0, modele: modele, modeOK: false }];
+    var selE = 0;
+    var LIB_POS_E = { base: 'Meuble 1', droite: 'À droite', gauche: 'À gauche',
+                      dessus: 'Au-dessus', suspendu: 'Suspendu' };
+
+    // Gabarit de départ d'un meuble ajouté, selon sa position.
+    function gabaritE(pos) {
+      var b = ensemble[selE].modele;   // on s'aligne sur le meuble de référence
+      var d = { ep: 19, epFond: 8, materiauDefaut: MAT_DEF,
+                modeConstruction: b.modeConstruction || null };
+      if (pos === 'droite' || pos === 'gauche') { d.L = 800; d.H = b.H; d.P = b.P; }
+      else if (pos === 'dessus')                { d.L = b.L; d.H = 500; d.P = b.P; }
+      else                                      { d.L = 800; d.H = 700; d.P = 350; }
+      d.racine = {};
+      return d;
+    }
+
+    // Positions absolues (mm) : x = 0 au bord gauche du meuble principal,
+    // y = 0 au sol. Chaque meuble ajouté se place PAR RAPPORT À un autre
+    // (it.ref = son index) : à droite de lui, à sa gauche, posé dessus…
+    // La référence est forcément un meuble placé AVANT dans la liste, ce qui
+    // interdit les renvois circulaires. Tout est recalculé à chaque rendu :
+    // élargir un meuble recale automatiquement ceux qui s'appuient dessus.
+    function compositionE() {
+      var out = [];
+      ensemble.forEach(function (it, i) {
+        if (i === 0 || it.pos === 'base') {
+          out.push({ modele: it.modele, nom: it.nom, x: 0, y: 0, z: 0 });
+          return;
+        }
+        var ir = (it.ref != null && it.ref >= 0 && it.ref < i) ? it.ref : 0;
+        var r = out[ir], rm = r.modele, L = it.modele.L || 0, x = 0, y = 0;
+        if (it.pos === 'droite')      { x = r.x + (rm.L || 0) + (it.dec || 0); y = r.y; }
+        else if (it.pos === 'gauche') { x = r.x - L + (it.dec || 0);           y = r.y; }
+        else if (it.pos === 'dessus') { x = r.x + (it.dec || 0); y = r.y + (rm.H || 0); }
+        else                          { x = r.x + (it.dec || 0); y = it.hSol || 0; }
+        out.push({ modele: it.modele, nom: it.nom, x: x, y: y, z: 0 });
+      });
+      return out;
+    }
+
+    // Parcours guidé du mode de construction, EN HAUT de « Meuble seul »,
+    // monté dès l'arrivée (avant d'éditer) : mêmes 2 questions que calcul
+    // (un seul caisson / plusieurs · sur pieds-socle / montants au sol) puis
+    // les modes correspondants. Le choix est poussé dans le modèle et
+    // l'éditeur se resynchronise via setModele.
+    // Étape 1 = questions mode (seul) ; étape 2 = éditeur réel (révélé après
+    // le choix), comme dans calcul. modeConfirme passe à true dès qu'un mode
+    // est choisi (ou meuble issu d'une analyse photo).
+    var modeConfirme = false;
+    function majEtapeEditeur() {
+      var cE = document.getElementById('cardEditeur');
+      var bM = document.getElementById('barMeuble');
+      var c3 = document.getElementById('card3D');
+      var cA = document.getElementById('cardAjout');
+      var cM = document.getElementById('cardMateriaux');
+      if (cE) cE.style.display = modeConfirme ? '' : 'none';
+      if (bM) bM.style.display = modeConfirme ? '' : 'none';
+      // la 3D, l'ajout et les matériaux n'ont de sens qu'une fois le mode choisi
+      if (c3) c3.style.display = modeConfirme ? '' : 'none';
+      if (cA) cA.style.display = modeConfirme ? '' : 'none';
+      // la liste des matériaux n'apparaît qu'avec l'outil « Matériau » de
+      // l'éditeur — elle reste donc masquée ici (cf. montrerMateriaux).
+      if (cM) cM.style.display = 'none';
+      // Mode choisi → le sélecteur guidé se referme complètement : l'éditeur
+      // porte déjà sa propre vignette « Mode de construction · Changer »,
+      // juste au-dessus du dessin. Deux sélecteurs feraient doublon.
+      var cMode = document.getElementById('cardModeMeuble');
+      if (cMode) cMode.style.display = modeConfirme ? 'none' : '';
+    }
+
+    var pickerModeMeuble = null;
+    function monterModeMeuble() {
+      var _MC = (typeof WooderModeConstruction !== 'undefined') ? WooderModeConstruction : null;
+      var hote = document.getElementById('hoteModeMeuble');
+      if (!_MC || !_MC.creerPicker || !hote) return;
+      if (!modele.modeConstruction && _MC.obtenirListe && _MC.obtenirListe().length) {
+        modele.modeConstruction = _MC.obtenirListe()[0].id;
+      }
+      pickerModeMeuble = _MC.creerPicker(hote, {
+        selected: modele.modeConstruction || null,
+        forcerAssistant: true,
+        // Un meuble = un caisson. Pour plusieurs caissons côte à côte, on
+        // ajoute des meubles (bouton « + Ajouter un meuble ») : chacun garde
+        // alors ses dimensions, son matériau et son débit propres.
+        caissonUnique: true,
+        piedsActive:    !!(modele.pieds && modele.pieds.active),
+        hauteurPlinthe: (modele.pieds && modele.pieds.hauteurPlinthe) || 100,
+        onSelect: function (id) {
+          modele.modeConstruction = id;
+          modeConfirme = true; majEtapeEditeur();   // étape 2 : révéler l'éditeur réel
+          if (editeur && editeur.setModele) { try { editeur.setModele(modele); } catch (e) {} }
+          // Indice « plusieurs caissons » : si le mode double les montants
+          // (caissons séparés), explique que « Nb colonnes » = nb de caissons.
+          var at = _MC.obtenirAttributs ? _MC.obtenirAttributs(id) : null;
+          // « plusieurs caissons » = panneaux haut ET bas découpés + montant
+          // doublé (même critère strict que l'assistant : caissons autonomes).
+          var separes = !!(at && at.pan_sup_continu === false && at.pan_inf_continu === false
+                            && at.nb_montants_centraux >= 2);
+          var hint = document.getElementById('hintCaissons');
+          if (hint) {
+            hint.style.display = separes ? 'block' : 'none';
+            if (separes) hint.innerHTML = '🗄 <b>Mode caissons séparés</b> — règle le nombre de caissons avec le champ <b>« Nb colonnes »</b> de l\'éditeur ci-dessous : chaque colonne devient un caisson autonome (joues doublées + haut/bas par caisson).';
+          }
+        },
+        onPiedsChange: function (et) {
+          modele.pieds = { active: !!et.active, hauteurPlinthe: (et && et.hauteurPlinthe) || 100 };
+          if (editeur && editeur.setModele) { try { editeur.setModele(modele); } catch (e) {} }
+        }
+      });
+    }
+
+    // ── Vue 3D du meuble seul ────────────────────────────────────────
+    // Même modèle que l'éditeur : tout changement 2D se voit immédiatement.
+    // Créée à la demande (au 1er affichage) pour ne pas charger Three.js
+    // quand on n'ouvre que le mode Projet.
+    var vue3d = null;
+    function maj3D() {
+      if (typeof WooderVue3D === 'undefined') return;
+      var hote = document.getElementById('vue3d');
+      var carte = document.getElementById('card3D');
+      // rien à faire tant que la carte est masquée : le conteneur ferait 0 px
+      // de large et la caméra se calerait sur un cadre vide.
+      if (!hote || !carte || carte.style.display === 'none' || hote.style.display === 'none') return;
+      if (!vue3d) {
+        vue3d = WooderVue3D.creer(hote, {
+          meubles: compositionE(), materiaux: MAT,
+          onPret: function (api) { api.recadrer(); },  // cadrage une fois la taille connue
+          // Cliquer un meuble dans la 3D l'ouvre dans l'éditeur 2D : avec un
+          // ensemble, c'est plus direct que de chercher son onglet. Chaque
+          // panneau porte l'indice de son meuble (_meuble), posé par
+          // panneauxComposition dans le même ordre que compositionE().
+          onSelect: function (panneau) {
+            if (!panneau) return;
+            var i = panneau._meuble || 0;
+            if (i !== selE && ensemble[i]) choisirE(i);
+          }
+        });
+      } else {
+        vue3d.setMeubles(compositionE());
+      }
+    }
+    (function commandes3D() {
+      var carte = document.getElementById('card3D'), btn = document.getElementById('btn3D');
+      var ouvert = true, porteOuverte = false;
+      btn.addEventListener('click', function () {
+        ouvert = !ouvert;
+        document.getElementById('vue3d').style.display = ouvert ? '' : 'none';
+        btn.textContent = ouvert ? 'Masquer' : 'Afficher';
+        if (ouvert) { maj3D(); if (vue3d) vue3d.recadrer(); }
+      });
+      document.getElementById('btnOuvrir3D').addEventListener('click', function () {
+        if (!vue3d) return;
+        porteOuverte = !porteOuverte;
+        vue3d.setOuverture(porteOuverte ? 1 : 0);
+        this.textContent = porteOuverte ? 'Fermer portes / tiroirs' : 'Ouvrir portes / tiroirs';
+      });
+      document.getElementById('btnRecadrer3D').addEventListener('click', function () { if (vue3d) vue3d.recadrer(); });
+      document.getElementById('chkDecors').addEventListener('change', function () { if (vue3d) vue3d.setTextures(this.checked); });
+    })();
+
+    // Vue 2D : 'meuble' = l'éditeur du meuble en cours ; 'ensemble' = élévation
+    // de tous les meubles à leur place, en lecture seule (pour se rendre compte
+    // de l'allure générale sans quitter la page).
+    var vue2D = 'meuble';
+    function ouvrir() {
+      if (editeur) { try { editeur.detruire(); } catch (e) {} editeur = null; }
+      var hote = document.getElementById('editeur');
+      if (vue2D === 'ensemble' && ensemble.length > 1) {
+        var comp = compositionE();
+        var ox = Math.min(0, Math.min.apply(null, comp.map(function (c) { return c.x; })));
+        var L = Math.max.apply(null, comp.map(function (c) { return c.x - ox + (c.modele.L || 0); }));
+        var H = Math.max.apply(null, comp.map(function (c) { return c.y + (c.modele.H || 0); }));
+        editeur = WooderPlan2D.creerComposition(hote, {
+          espace: { L: Math.ceil((L + 200) / 100) * 100, H: Math.ceil((H + 200) / 100) * 100,
+                    P: comp[0].modele.P },
+          meubles: comp.map(function (c) { return c.modele; }),
+          positions: comp.map(function (c) { return { x: c.x - ox, y: c.y }; }),
+          materiaux: MAT,
+          lectureSeule: true      // on positionne par les réglages, pas à la souris
+        });
+      } else {
+        editeur = WooderPlan2D.creer(hote, {
+          modele: modele,
+          materiaux: MAT,
+          materiauDefaut: MAT_DEF,
+          // un meuble = un caisson : plusieurs caissons = plusieurs meubles
+          caissonUnique: true,
+          // les colonnes se posent avec l'outil « + Montant »
+          champColonnes: false,
+          onChange: function (m) { modele = m; ensemble[selE].modele = m; maj3D(); majListeMateriaux(); },
+          // la liste des matériaux ne s'affiche qu'avec l'outil « Matériau »
+          onOutil: function (o) { montrerMateriaux(o === 'materiau'); }
+        });
+      }
+      monterModeMeuble();   // parcours guidé du mode, en haut, à chaque (re)ouverture
+      majEtapeEditeur();     // étape 1 : éditeur masqué tant qu'aucun mode choisi
+      majBascule2D();
+      maj3D();
+    }
+
+    // La bascule n'a de sens qu'à partir de deux meubles.
+    function majBascule2D() {
+      var b = document.getElementById('bascule2D');
+      if (!b) return;
+      b.style.display = (ensemble.length > 1) ? 'flex' : 'none';
+      var bm = document.getElementById('btnVueMeuble'), be = document.getElementById('btnVueEnsemble');
+      bm.className = 'tab' + (vue2D === 'meuble'   ? ' actif active' : '');
+      be.className = 'tab' + (vue2D === 'ensemble' ? ' actif active' : '');
+    }
+    (function bascule() {
+      document.getElementById('btnVueMeuble').addEventListener('click', function () {
+        if (vue2D === 'meuble') return;
+        vue2D = 'meuble'; ouvrir();
+      });
+      document.getElementById('btnVueEnsemble').addEventListener('click', function () {
+        if (vue2D === 'ensemble') return;
+        // on sauve le meuble en cours avant de quitter son éditeur
+        if (editeur && editeur.getModele) { try { ensemble[selE].modele = editeur.getModele(); } catch (e) {} }
+        vue2D = 'ensemble'; ouvrir();
+      });
+    })();
+
+    // ── Liste des matériaux, par meuble et par type d'élément ───────
+    // Mêmes clés que l'éditeur 2D (typeDeKey) : ce qu'on règle ici et ce
+    // qu'on règle en cliquant un panneau dans la 2D sont la même chose.
+    var TYPES_MAT = [
+      { cle: null,      lib: 'Tout le meuble' },
+      { cle: 'caisson', lib: 'Caisson (côtés, dessus, dessous, fond)' },
+      { cle: 'etagere', lib: 'Étagères' },
+      { cle: 'montant', lib: 'Montants' },
+      { cle: 'facade',  lib: 'Façades (portes, tiroirs)' },
+      { cle: 'fileur',  lib: 'Fileurs et plinthe' }
+    ];
+    function materiauCourant(m, cle) {
+      if (!cle) return m.materiauDefaut || '';
+      return (m.matType && m.matType[cle]) || m.materiauDefaut || '';
+    }
+    function filCourant(m, cle) {
+      if (!cle) return m.filDefaut || 'long';
+      return (m.filType && m.filType[cle]) || m.filDefaut || 'long';
+    }
+    // Applique matériau + sens du fil. cle null = tout le meuble : devient le
+    // défaut ET efface toutes les exceptions (par pièce et par type).
+    function appliquerMat(iM, cle, idMat, fil) {
+      var m = ensemble[iM].modele;
+      var typeDe = (WooderPlan2D.typeDeKey) ? WooderPlan2D.typeDeKey : function () { return 'caisson'; };
+      m.mat = m.mat || {}; m.matType = m.matType || {};
+      m.fil = m.fil || {}; m.filType = m.filType || {};
+      if (!cle) {
+        m.materiauDefaut = idMat; m.mat = {}; m.matType = {};
+        m.filDefaut = fil;        m.fil = {}; m.filType = {};
+      } else {
+        m.matType[cle] = idMat; m.filType[cle] = fil;
+        Object.keys(m.mat).forEach(function (k) { if (typeDe(k) === cle) delete m.mat[k]; });
+        Object.keys(m.fil).forEach(function (k) { if (typeDe(k) === cle) delete m.fil[k]; });
+      }
+      if (iM === selE && editeur && editeur.setModele) { try { editeur.setModele(m); } catch (e) {} }
+      majListeMateriaux(); maj3D();
+    }
+    // Affiche ou masque la liste des matériaux, et la rafraîchit à l'ouverture.
+    function montrerMateriaux(on) {
+      var c = document.getElementById('cardMateriaux');
+      if (!c) return;
+      c.style.display = on ? '' : 'none';
+      if (on) { majListeMateriaux(); c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    }
+
+    function majListeMateriaux() {
+      var hote = document.getElementById('listeMateriaux');
+      if (!hote || document.getElementById('cardMateriaux').style.display === 'none') return;
+      hote.innerHTML = '';
+      ensemble.forEach(function (it, iM) {
+        var bloc = document.createElement('div');
+        bloc.style.cssText = 'margin-bottom:14px' + (iM ? ';border-top:1px solid var(--line);padding-top:12px' : '');
+        var titre = document.createElement('div');
+        titre.style.cssText = 'font-size:13px;font-weight:700;margin-bottom:8px' + (iM === selE ? ';color:var(--accent)' : '');
+        titre.textContent = it.nom + (iM === selE ? '  (en cours d\'édition)' : '');
+        bloc.appendChild(titre);
+
+        TYPES_MAT.forEach(function (t) {
+          var ligne = document.createElement('div');
+          ligne.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px';
+          var lab = document.createElement('span');
+          lab.style.cssText = 'font-size:12px;color:var(--muted);flex:0 0 190px';
+          lab.textContent = t.lib;
+          ligne.appendChild(lab);
+
+          var sel = document.createElement('select');
+          sel.style.cssText = 'flex:1 1 200px;min-width:160px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:14px;background:#fff';
+          var courant = materiauCourant(it.modele, t.cle);
+          var familles = {};
+          MAT.forEach(function (x) { (familles[x.famille] = familles[x.famille] || []).push(x); });
+          if (t.cle) { var vide = document.createElement('option'); vide.value = ''; vide.textContent = '— comme le meuble —'; sel.appendChild(vide); }
+          Object.keys(familles).forEach(function (f) {
+            var og = document.createElement('optgroup'); og.label = f;
+            familles[f].forEach(function (x) {
+              var o = document.createElement('option'); o.value = x.id;
+              o.textContent = x.nom + ' · ' + x.ep + 'mm';
+              if (x.id === courant && (!t.cle || (it.modele.matType && it.modele.matType[t.cle]))) o.selected = true;
+              og.appendChild(o);
+            });
+            sel.appendChild(og);
+          });
+          ligne.appendChild(sel);
+
+          // sens du fil, seulement pour un décor veiné (sinon sans objet)
+          var fil = document.createElement('select');
+          fil.style.cssText = 'padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:13px;background:#fff';
+          [['long', '↕ Fil longueur'], ['trav', '↔ Fil travers']].forEach(function (o) {
+            var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1];
+            if (o[0] === filCourant(it.modele, t.cle)) op.selected = true;
+            fil.appendChild(op);
+          });
+          var veine = (typeof WooderTextures !== 'undefined' && WooderTextures.veine)
+            ? WooderTextures.veine(courant) : true;
+          fil.style.display = veine ? '' : 'none';
+          ligne.appendChild(fil);
+
+          function poser() {
+            var id = sel.value || it.modele.materiauDefaut;
+            appliquerMat(iM, t.cle, id, fil.value);
+          }
+          sel.addEventListener('change', poser);
+          fil.addEventListener('change', poser);
+          bloc.appendChild(ligne);
+        });
+        hote.appendChild(bloc);
+      });
+    }
+
+    // ── Onglets de l'ensemble ───────────────────────────────────────
+    function majOngletsE() {
+      var zone = document.getElementById('ongletsMeubles');
+      if (!zone) return;
+      zone.innerHTML = '';
+      // un seul meuble → pas d'onglet, l'interface reste comme avant
+      document.getElementById('posMeuble').style.display =
+        (ensemble.length > 1 && ensemble[selE].pos !== 'base') ? '' : 'none';
+      if (ensemble.length < 2) return;
+      ensemble.forEach(function (it, i) {
+        var b = document.createElement('button');
+        b.className = 'tab' + (i === selE ? ' actif' : '');
+        b.textContent = it.nom;
+        b.addEventListener('click', function () { choisirE(i); });
+        zone.appendChild(b);
+      });
+    }
+    function choisirE(i) {
+      if (editeur && editeur.getModele) { try { ensemble[selE].modele = editeur.getModele(); } catch (e) {} }
+      ensemble[selE].modeOK = modeConfirme;
+      vue2D = 'meuble';        // choisir un meuble ramène forcément à son éditeur
+      selE = i;
+      modele = ensemble[i].modele;
+      modeConfirme = !!ensemble[i].modeOK;
+      var it = ensemble[i];
+      if (it.pos !== 'base') {
+        document.getElementById('selPosition').value = it.pos;
+        document.getElementById('hauteurSol').value = it.hSol || 1400;
+        document.getElementById('decalage').value = it.dec || 0;
+        document.getElementById('wrapHauteurSol').style.display = (it.pos === 'suspendu') ? '' : 'none';
+        majRefMeuble(i);
+      }
+      majOngletsE();
+      majListeMateriaux();
+      majHabillage();
+      ouvrir();
+    }
+    // Liste des meubles auxquels celui d'index i peut se rattacher : ceux
+    // placés AVANT lui (sinon on créerait un renvoi circulaire).
+    function majRefMeuble(i) {
+      var sel = document.getElementById('refMeuble'), it = ensemble[i];
+      if (!sel || !it) return;
+      var libelle = { droite: 'À droite de', gauche: 'À gauche de',
+                      dessus: 'Posé sur', suspendu: 'Aligné sur' };
+      document.querySelector('#wrapRef').firstChild.nodeValue = (libelle[it.pos] || 'Par rapport à') + ' ';
+      sel.innerHTML = '';
+      for (var j = 0; j < i; j++) {
+        var o = document.createElement('option');
+        o.value = j; o.textContent = ensemble[j].nom;
+        if ((it.ref != null ? it.ref : 0) === j) o.selected = true;
+        sel.appendChild(o);
+      }
+      // un seul candidat → le choix n'apporte rien, on masque la ligne
+      document.getElementById('wrapRef').style.display = (i > 1) ? '' : 'none';
+    }
+
+    function ajouterE(pos) {
+      if (editeur && editeur.getModele) { try { ensemble[selE].modele = editeur.getModele(); } catch (e) {} }
+      ensemble[selE].modeOK = modeConfirme;
+      var n = ensemble.filter(function (x) { return x.pos === pos; }).length;
+      ensemble.push({
+        nom: LIB_POS_E[pos] + (n ? ' ' + (n + 1) : ''),
+        pos: pos,
+        // par défaut on se rattache au meuble qu'on était en train d'éditer :
+        // « ajouter à droite » veut dire à droite de CELUI-LÀ.
+        ref: selE,
+        hSol: (pos === 'suspendu') ? Math.max(1400, (ensemble[selE].modele.H || 2000) + 300) : 0,
+        dec: 0,
+        modele: gabaritE(pos),
+        // le mode de construction est repris du meuble principal → on passe
+        // directement à l'éditeur au lieu de refaire les 2 questions
+        modeOK: !!ensemble[0].modele.modeConstruction
+      });
+      document.getElementById('choixPosition').style.display = 'none';
+      choisirE(ensemble.length - 1);
+      if (vue3d) vue3d.recadrer();
+    }
+    // ── Fileurs et plinthe rapportée du meuble courant ──────────────
+    // Stockés dans le modèle (m.fileurs / m.plinthe) : ils voyagent donc avec
+    // lui vers la 3D, le débit et le PDF.
+    function majHabillage() {
+      var m = ensemble[selE].modele, f = m.fileurs || {}, p = m.plinthe || {};
+      document.getElementById('filGauche').value = f.gauche || 0;
+      document.getElementById('filDroite').value = f.droite || 0;
+      document.getElementById('filHaut').value   = f.haut   || 0;
+      var act = !!p.active;
+      document.getElementById('plintheActive').checked = act;
+      document.getElementById('plintheH').value = p.hauteur || (m.pieds && m.pieds.hauteurPlinthe) || 100;
+      document.getElementById('plinthePose').value = p.pose || 'encastree';
+      document.getElementById('wrapPlintheH').style.display = act ? '' : 'none';
+      document.getElementById('wrapPlinthePose').style.display = act ? '' : 'none';
+      // une plinthe encastrée est déjà dans le mode : pas de plinthe rapportée
+      var a = (typeof WooderModeConstruction !== 'undefined' && m.modeConstruction)
+        ? WooderModeConstruction.obtenirAttributs(m.modeConstruction) : null;
+      var enc = !!(a && a.plinthe_encastree);
+      // un meuble qui n'est pas au sol n'a pas de plinthe
+      var pos = ensemble[selE].pos;
+      var auSol = (pos === 'base' || pos === 'droite' || pos === 'gauche');
+      document.getElementById('ligneePlinthe').style.display = (enc || !auSol) ? 'none' : '';
+
+      // Un fileur latéral comble le jeu contre un MUR : il n'a de sens que sur
+      // le meuble le plus à gauche (fileur gauche) et le plus à droite (fileur
+      // droit) de l'ensemble. Au milieu il rentrerait dans le meuble voisin.
+      var comp = compositionE();
+      var iGauche = 0, iDroite = 0;
+      comp.forEach(function (c, i) {
+        if (c.x < comp[iGauche].x) iGauche = i;
+        if (c.x + (c.modele.L || 0) > comp[iDroite].x + (comp[iDroite].modele.L || 0)) iDroite = i;
+      });
+      var champG = document.getElementById('filGauche').closest('div');
+      var champD = document.getElementById('filDroite').closest('div');
+      champG.style.display = (selE === iGauche) ? '' : 'none';
+      champD.style.display = (selE === iDroite) ? '' : 'none';
+      var note = document.getElementById('noteFileur');
+      if (note) {
+        note.textContent = (selE === iGauche && selE === iDroite) ? ''
+          : (selE === iGauche ? 'Ce meuble est le plus à gauche : seul le fileur gauche s\'applique.'
+          : (selE === iDroite ? 'Ce meuble est le plus à droite : seul le fileur droit s\'applique.'
+          : 'Ce meuble est encadré par d\'autres : seul un fileur haut s\'applique.'));
+      }
+    }
+    (function habillage() {
+      function lire() {
+        var m = ensemble[selE].modele;
+        m.fileurs = {
+          gauche: Math.max(0, parseFloat(document.getElementById('filGauche').value) || 0),
+          droite: Math.max(0, parseFloat(document.getElementById('filDroite').value) || 0),
+          haut:   Math.max(0, parseFloat(document.getElementById('filHaut').value)   || 0)
+        };
+        var act = document.getElementById('plintheActive').checked;
+        m.plinthe = { active: act,
+                      hauteur: parseFloat(document.getElementById('plintheH').value) || 100,
+                      pose: document.getElementById('plinthePose').value };
+        document.getElementById('wrapPlintheH').style.display = act ? '' : 'none';
+        document.getElementById('wrapPlinthePose').style.display = act ? '' : 'none';
+        maj3D();
+        if (vue2D === 'ensemble') ouvrir();
+      }
+      ['filGauche', 'filDroite', 'filHaut', 'plintheActive', 'plintheH', 'plinthePose'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.addEventListener('change', lire); el.addEventListener('input', lire);
+      });
+    })();
+
+    // Plein écran de l'éditeur : utile pour dessiner au large sur tablette.
+    // Échap referme, comme partout ailleurs.
+    (function pleinEcran() {
+      var carte = document.getElementById('cardEditeur');
+      var btn = document.getElementById('btnPleinEcran');
+      function basculer(actif) {
+        carte.classList.toggle('plein-ecran', actif);
+        document.body.style.overflow = actif ? 'hidden' : '';
+        btn.textContent = actif ? '⤡ Réduire' : '⤢ Plein écran';
+      }
+      btn.addEventListener('click', function () { basculer(!carte.classList.contains('plein-ecran')); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && carte.classList.contains('plein-ecran')) basculer(false);
+      });
+    })();
+
+    (function commandesEnsemble() {
+      document.getElementById('btnAjoutMeuble').addEventListener('click', function () {
+        var z = document.getElementById('choixPosition');
+        z.style.display = (z.style.display === 'none') ? '' : 'none';
+      });
+      document.getElementById('btnAnnulPos').addEventListener('click', function () {
+        document.getElementById('choixPosition').style.display = 'none';
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('#choixPosition button[data-pos]'), function (b) {
+        b.addEventListener('click', function () { ajouterE(b.getAttribute('data-pos')); });
+      });
+      function majPos() {
+        var it = ensemble[selE];
+        if (!it || it.pos === 'base') return;
+        it.pos  = document.getElementById('selPosition').value;
+        it.hSol = parseFloat(document.getElementById('hauteurSol').value) || 0;
+        it.dec  = parseFloat(document.getElementById('decalage').value) || 0;
+        var r = parseInt(document.getElementById('refMeuble').value, 10);
+        if (!isNaN(r) && r < selE) it.ref = r;
+        it.nom  = LIB_POS_E[it.pos];
+        document.getElementById('wrapHauteurSol').style.display = (it.pos === 'suspendu') ? '' : 'none';
+        majRefMeuble(selE);
+        majOngletsE(); maj3D();
+        if (vue2D === 'ensemble') ouvrir();   // la vue d'ensemble suit le déplacement
+      }
+      ['selPosition', 'hauteurSol', 'decalage', 'refMeuble'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.addEventListener('change', majPos); el.addEventListener('input', majPos);
+      });
+      document.getElementById('btnSupprMeuble').addEventListener('click', function () {
+        if (ensemble[selE].pos === 'base') return;
+        ensemble.splice(selE, 1);
+        choisirE(0);
+        maj3D();
+        if (vue3d) vue3d.recadrer();
+      });
+    })();
+
+    majOngletsE();
+    majListeMateriaux();
+    majHabillage();
+    ouvrir();
+
+    // Envoie le meuble ÉDITÉ à l'outil de calcul (devis) — calcul.html?meuble=<modèle>.
+    // Le devis reflète donc exactement ce qui est dessiné dans l'éditeur.
+    // « Voir dans une pièce » : on passe l'ensemble tel quel au visualiseur,
+    // par sessionStorage (une composition dépasse vite la longueur d'une URL).
+    document.getElementById('btnVoirPiece').addEventListener('click', function () {
+      if (editeur && editeur.getModele) { try { ensemble[selE].modele = editeur.getModele(); } catch (e) {} }
+      try {
+        sessionStorage.setItem('wooder_composition', JSON.stringify(compositionE()));
+      } catch (e) { /* stockage plein ou refusé : le visualiseur montrera l'exemple */ }
+      window.location.href = 'visualiseur.html';
+    });
+
+    // Devis : un seul meuble → ?meuble=  ·  plusieurs → ?meubles= (liste),
+    // le même format que le mode Projet, déjà compris par calcul.html.
+    document.getElementById('btnDevis').addEventListener('click', function () {
+      if (editeur && editeur.getModele) { try { ensemble[selE].modele = editeur.getModele(); } catch (e) {} }
+      var base = (document.getElementById('nom').value || 'Meuble').trim();
+      if (ensemble.length === 1) {
+        var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(ensemble[0].modele))));
+        window.location.href = 'calcul.html?meuble=' + encodeURIComponent(b64);
+        return;
+      }
+      var models = ensemble.map(function (it, i) {
+        var md = JSON.parse(JSON.stringify(it.modele));
+        md._nom = (i === 0) ? base : base + ' — ' + it.nom;
+        return md;
+      });
+      var b = btoa(unescape(encodeURIComponent(JSON.stringify(models))));
+      window.location.href = 'calcul.html?meubles=' + encodeURIComponent(b);
+    });
+
+    document.getElementById('btnPDF').addEventListener('click', function () {
+      if (editeur && editeur.getModele) { try { ensemble[selE].modele = editeur.getModele(); } catch (e) {} }
+      var base = (document.getElementById('nom').value || 'Meuble').trim();
+      if (ensemble.length === 1) {
+        etat.textContent = 'Génération du PDF…';
+        Promise.resolve(WooderPlan2D.exporterPDF(ensemble[0].modele, { nom: base, materiaux: MAT }))
+          .then(function () { etat.textContent = 'PDF enregistré ✓'; })
+          .catch(function (e) { etat.textContent = 'Erreur : ' + e; });
+        return;
+      }
+      // plusieurs meubles → un PDF chacun, à la suite
+      etat.textContent = 'Génération de ' + ensemble.length + ' PDF…';
+      var i = 0;
+      (function suivant() {
+        if (i >= ensemble.length) { etat.textContent = ensemble.length + ' PDF enregistrés ✓'; return; }
+        var it = ensemble[i];
+        var nom = (i === 0) ? base : base + '_' + it.nom.replace(/[^\w]+/g, '_');
+        Promise.resolve(WooderPlan2D.exporterPDF(it.modele, { nom: nom, materiaux: MAT }))
+          .then(function () { i++; setTimeout(suivant, 300); })
+          .catch(function (e) { etat.textContent = 'Erreur : ' + e; });
+      })();
+    });
+
+    // ── RÉCEPTION D'UN MEUBLE ANALYSÉ (analyser-meuble.html?photo=...) ──
+    // Court-circuite l'outil de calcul : reconstruit un modèle WooderPlan2D
+    // fidèle à l'analyse photo et l'ouvre directement en mode « Meuble seul ».
+    // _modele2DDepuisPhoto : NOUVEAU schéma d'analyse (photo.colonnes, lignes
+    // BAS→HAUT = ordre d'empilage de l'éditeur → aucune inversion). Repli sur
+    // l'ancien schéma (photo.elements) via _modele2DDepuisPhotoLegacy.
+    function _modele2DDepuisPhoto(photo) {
+      var colonnes = photo && photo.colonnes;
+      if (!colonnes || !colonnes.length) return _modele2DDepuisPhotoLegacy(photo);
+
+      var cm = (typeof cmToMm === 'function') ? cmToMm : function (v) { return Math.round((v || 0) * 10); };
+      var ens = photo.ensemble || {};
+      var dim = ens.dimensions_totales || ens;
+      var EP = 19, MIN = 120;
+      var H = cm(dim.hauteur) || 2000;
+      var L = cm(dim.largeur) || 1000;
+      var P = cm(dim.profondeur) || 600;
+
+      // niche à N étagères = N+1 cases empilées (les séparations = les étagères)
+      function nicheEtageres(nb) {
+        var k = Math.max(1, (nb || 0) + 1);
+        if (k === 1) return {};
+        var enf = []; for (var i = 0; i < k; i++) enf.push({});
+        return { sens: 'h', tailles: enf.map(function () { return 0; }), enfants: enf };
+      }
+      function sensPorte(b) { return (b >= 2) ? 'double' : 'droite'; }
+
+      // une ligne de composition (bas→haut) → { node, h } (h = hauteur fixe mm, 0 = flexible)
+      function ligneVersNoeud(ligne) {
+        var t = (ligne.type || '').toLowerCase();
+        if (t === 'tiroirs' || t === 'tiroir') {
+          var n = Math.max(1, ligne.nombre || 1), hmm = ligne.hauteur_mm || 200, arr = [];
+          for (var i = 0; i < n; i++) arr.push(hmm);
+          return { node: { facade: { type: 'tiroir', pose: 'applique', tiroirs: arr } }, h: hmm * n };
+        }
+        var node;
+        if (t === 'porte') node = { facade: { type: 'porte', pose: 'applique', sens: sensPorte(ligne.battants) } };
+        else node = nicheEtageres(ligne.etageres);            // 'ouvert' / niche
+        if (ligne.penderie) node.penderie = true;
+        return { node: node, h: 0 };
+      }
+
+      function colonneVersNoeud(col) {
+        var lignes = col.composition_bas_vers_haut || col.composition || [];
+        // Cas spécial : colonne = UNE seule porte → la façade au niveau colonne
+        // peut porter des étagères derrière et/ou un montant intermédiaire
+        // (seul endroit où l'éditeur dessine une façade sur un nœud non-feuille).
+        if (lignes.length === 1 && (lignes[0].type || '').toLowerCase() === 'porte') {
+          var lg = lignes[0], fac = { type: 'porte', pose: 'applique', sens: sensPorte(lg.battants) };
+          if (col.montant_intermediaire) {
+            return { sens: 'v', tailles: [0, 0],
+                     enfants: [nicheEtageres(lg.etageres), nicheEtageres(lg.etageres)], facade: fac };
+          }
+          if (lg.etageres > 0) { var nd = nicheEtageres(lg.etageres); nd.facade = fac; if (lg.penderie) nd.penderie = true; return nd; }
+          var leaf = { facade: fac }; if (lg.penderie) leaf.penderie = true; return leaf;
+        }
+        // Cas général : empilement bas→haut
+        var built = lignes.map(ligneVersNoeud);
+        if (!built.length) return {};
+        if (built.length === 1) return built[0].node;
+        var fixe = built.reduce(function (s, b) { return s + b.h; }, 0);
+        var nFlex = built.filter(function (b) { return !b.h; }).length;
+        var flex = nFlex > 0 ? Math.max(MIN, (H - fixe) / nFlex) : 0;
+        return { sens: 'h',
+                 tailles: built.map(function (b) { return b.h || flex; }),
+                 enfants: built.map(function (b) { return b.node; }) };
+      }
+
+      var racine = {
+        sens: 'v',
+        tailles: colonnes.map(function (c) { return c.largeur_mm || c.largeur || 0; }),
+        enfants: colonnes.map(colonneVersNoeud)
+      };
+      var mdl = { H: H, L: L, P: P, ep: EP, racine: racine };
+      if (photo.mode_construction && photo.mode_construction.id) mdl.modeConstruction = photo.mode_construction.id;
+      // Finition détectée (ex. "noir", "chêne") → matériau par défaut : l'éditeur
+      // affiche la bonne teinte. Mappage par mot-clé sur le libellé du catalogue.
+      var _fin = ens.materiau_apparent || (colonnes[0] && colonnes[0].materiau);
+      var _cat = (typeof MATERIAUX_DEFAULT !== 'undefined' && MATERIAUX_DEFAULT.length) ? MATERIAUX_DEFAULT
+               : (typeof MAT !== 'undefined' ? MAT : []);
+      if (_fin && _cat.length) {
+        var _n = function (s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+        var _mots = _n(_fin).split(/[^a-z]+/).filter(function (w) { return w.length >= 3; });
+        for (var _i = 0; _i < _cat.length && _mots.length; _i++) {
+          if (_cat[_i].ep && _cat[_i].ep !== 19) continue;
+          if (_mots.some(function (w) { return _n(_cat[_i].nom).indexOf(w) >= 0; })) { mdl.materiauDefaut = _cat[_i].id; break; }
+        }
+      }
+      return mdl;
+    }
+
+    // _modele2DDepuisPhotoLegacy : ANCIEN schéma (photo.elements[].facade.composition),
+    // conservé en repli.
+    function _modele2DDepuisPhotoLegacy(photo) {
+      var ens = (photo && photo.ensemble) || {};
+      var dim = ens.dimensions_totales || {};
+      var els = (photo && photo.elements) || [];
+      var EP  = 19;
+      var cm  = (typeof cmToMm === 'function') ? cmToMm : function (v) { return Math.round((v || 0) * 10); };
+      var H = cm(dim.hauteur) || 2000;
+      var L = cm(dim.largeur) || 1000;
+      var P = cm(dim.profondeur) || 600;
+
+      function poseDe(el) {
+        var p = (el.facade || {}).pose || '';
+        return (p === 'encastree' || p === 'encastre') ? 'encastre' : 'applique';
+      }
+      function rep(n) { var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }
+      function arr(n, f) { var a = []; for (var i = 0; i < n; i++) a.push(f(i)); return a; }
+
+      function leafFor(typeEl, pose) {
+        var t = (typeEl || '').toLowerCase();
+        if (t === 'porte')  return { facade: { type: 'porte',  pose: pose, sens: 'droite' } };
+        if (t === 'tiroir') return { facade: { type: 'tiroir', pose: pose, sens: null } };
+        if (t === 'vitree') return { facade: { type: 'porte',  pose: pose, sens: 'droite', vitree: true } };
+        return {}; // 'ouvert' / inconnu → niche ouverte
+      }
+
+      function buildElemsVert(elems, pose) {
+        // elems listés HAUT→BAS par l'IA ; l'éditeur empile sens:'h' avec
+        // l'index 0 EN BAS → on inverse pour respecter le positionnement réel.
+        var e2 = elems.slice().reverse();
+        return { sens: 'h', tailles: rep(e2.length),
+                 enfants: e2.map(function (e) { return leafFor(e.type, pose); }) };
+      }
+
+      function buildLine(line, pose) {
+        var sc = line.sous_colonnes;
+        if (sc && sc.length > 1) {
+          return {
+            sens: 'v',
+            tailles: sc.map(function (c) { return (c.largeur_ratio != null ? c.largeur_ratio : 1) * 1000; }),
+            enfants: sc.map(function (c) {
+              var es = c.elements || [];
+              if (es.length > 1) return buildElemsVert(es, pose);
+              return leafFor((es[0] || {}).type, pose);
+            })
+          };
+        }
+        var es = line.elements || [];
+        if (es.length > 1) {
+          var tousTiroirs = es.every(function (e) { return (e.type || '').toLowerCase() === 'tiroir'; });
+          return { sens: tousTiroirs ? 'h' : 'v', tailles: rep(es.length),
+                   enfants: es.map(function (e) { return leafFor(e.type, pose); }) };
+        }
+        if (es.length === 1) return leafFor(es[0].type, pose);
+        return {};
+      }
+
+      function buildElement(el) {
+        var pose  = poseDe(el);
+        var fac   = el.facade || {};
+        var compo = fac.composition;
+        if (compo && compo.length) {
+          if (compo.length === 1) return buildLine(compo[0], pose);
+          // L'IA liste les lignes de HAUT en BAS ; l'éditeur empile sens:'h'
+          // avec l'index 0 EN BAS → on inverse pour respecter le positionnement réel.
+          var lignes = compo.slice().reverse();
+          return {
+            sens: 'h',
+            tailles: lignes.map(function (l) { return (l.hauteur_ratio != null ? l.hauteur_ratio : 1) * 1000; }),
+            enfants: lignes.map(function (l) { return buildLine(l, pose); })
+          };
+        }
+        var se  = el.sous_elements || {};
+        var PB  = se.PB  || fac.nb_portes  || 0;
+        var TIR = se.TIR || fac.nb_tiroirs || 0;
+        var ETG = se.ETG || fac.nb_etg     || 0;
+        if (TIR > 0 && PB === 0) {
+          return { sens: 'h', tailles: rep(TIR), enfants: arr(TIR, function () { return leafFor('tiroir', pose); }) };
+        }
+        if (PB >= 2) {
+          return { sens: 'v', tailles: rep(PB), enfants: arr(PB, function () { return leafFor('porte', pose); }) };
+        }
+        if (PB === 1) return leafFor('porte', pose);
+        if (ETG > 0) {
+          var n = ETG + 1;
+          return { sens: 'h', tailles: rep(n), enfants: arr(n, function () { return {}; }) };
+        }
+        return {};
+      }
+
+      var racine = {
+        sens: 'v',
+        tailles: els.length ? els.map(function (el) { return cm(el.largeur) || 0; }) : [0],
+        enfants: els.length ? els.map(buildElement) : [{}]
+      };
+
+      var mdl = { H: H, L: L, P: P, ep: EP, racine: racine };
+      if (photo.mode_construction && photo.mode_construction.id) mdl.modeConstruction = photo.mode_construction.id;
+      return mdl;
+    }
+
+    // Clé sessionStorage partagée avec la page d'analyse (flux analyseur ⇄ éditeur).
+    var WOODER_EDITS = 'wooder_meubles_edites_v1';
+
+    (function recevoirPhotoEditeur() {
+      var params = new URLSearchParams(window.location.search);
+      var b64 = params.get('photo');
+      if (!b64) return;
+      var photoData;
+      try {
+        photoData = JSON.parse(decodeURIComponent(escape(atob(b64.replace(/-/g, '+').replace(/_/g, '/')))));
+      } catch (e) { console.error('[editeur] décodage photo échoué :', e); return; }
+
+      // Flux analyseur : si idx est fourni, on n'édite QUE ce meuble (1 élément,
+      // largeur = la sienne). retour=1 → on proposera « Enregistrer et revenir ».
+      var idxParam = params.get('idx');
+      var idx = (idxParam != null && idxParam !== '') ? parseInt(idxParam, 10) : null;
+      var retour = params.get('retour') === '1';
+      if (idx != null && photoData.colonnes && photoData.colonnes[idx]) {
+        // NOUVEAU schéma : on n'édite que CETTE colonne.
+        var col = photoData.colonnes[idx];
+        var ensC = photoData.ensemble || {};
+        var dtC = ensC.dimensions_totales || {};
+        photoData = {
+          ensemble: Object.assign({}, ensC, {
+            dimensions_totales: { largeur: col.largeur || dtC.largeur, hauteur: dtC.hauteur, profondeur: dtC.profondeur }
+          }),
+          colonnes: [col],
+          mode_construction: photoData.mode_construction
+        };
+      } else if (idx != null && photoData.elements && photoData.elements[idx]) {
+        var el = photoData.elements[idx];
+        var ens = photoData.ensemble || {};
+        var dt = ens.dimensions_totales || {};
+        photoData = {
+          ensemble: Object.assign({}, ens, {
+            dimensions_totales: { largeur: el.largeur || dt.largeur, hauteur: dt.hauteur, profondeur: dt.profondeur }
+          }),
+          elements: [el],
+          mode_construction: photoData.mode_construction
+        };
+      }
+
+      var m;
+      try { m = _modele2DDepuisPhoto(photoData); }
+      catch (e) { console.warn('[editeur] modèle non construit :', e); return; }
+
+      entrerMode('meuble');                 // bascule sur « Meuble seul »
+      modele = m;                           // modèle issu de l'analyse (dims gérées par la barre de l'éditeur)
+      var nom = (photoData.ensemble && (photoData.ensemble.nom_client || photoData.ensemble.nom)) || '';
+      var inpNom = document.getElementById('nom');
+      if (nom && inpNom) inpNom.value = nom;
+      modeConfirme = true;                  // meuble déjà conçu (analyse) → éditeur direct
+      ouvrir();                             // (re)construit l'éditeur avec ce modèle
+
+      if (retour) ajouterBoutonRetour(idx);
+    }());
+
+    // Bouton « ✓ Enregistrer et revenir à l'analyse » : mémorise le meuble édité
+    // (par index, dans sessionStorage) puis revient à la page d'analyse.
+    function ajouterBoutonRetour(idx) {
+      var bar = document.querySelector('#vueMeuble .bar');
+      if (!bar) return;
+      var b = document.createElement('button');
+      b.textContent = '✓ Enregistrer et revenir à l\'analyse';
+      b.addEventListener('click', function () {
+        try {
+          var store = JSON.parse(sessionStorage.getItem(WOODER_EDITS) || '{}');
+          store[idx == null ? 0 : idx] = ((editeur && editeur.getModele) ? editeur.getModele() : modele);
+          sessionStorage.setItem(WOODER_EDITS, JSON.stringify(store));
+        } catch (e) { /* sessionStorage indispo : on revient quand même */ }
+        window.location.href = 'analyser-meuble.html?retour=1';
+      });
+      bar.insertBefore(b, bar.firstChild);
+    }
+  </script>
+</body>
+</html>

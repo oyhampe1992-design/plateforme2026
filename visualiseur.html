@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voir dans une pièce — the wooder</title>
+  <link rel="stylesheet" href="wooder-fonts.css"><!-- charte The Wooder -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --text:#1f1f1d; --muted:#6b6b66; --line:#e3dfd3; --accent:#4F5E3C; --sage:#A7B98C; --sage-soft:#DCE6CF; --sage-deep:#4F5E3C; }
+    * { box-sizing: border-box; }
+    body { margin:0 auto; padding:24px 20px 60px; max-width:1200px;
+           font-family:'Lato',system-ui,sans-serif; color:var(--text); background:#faf8f2; }
+    h1 { font-family:'MADE Tommy',Georgia,serif; font-size:22px; font-weight:700; margin:0 0 4px; }
+    .subtitle { color:var(--muted); font-size:14px; margin:0 0 18px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; margin:0 0 16px; }
+    label { font-size:13px; color:var(--muted); display:block; margin:0 0 4px; }
+    input[type=number] { width:110px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:16px; }
+    select { min-height:40px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px; background:#fff; }
+    button { font:inherit; cursor:pointer; border-radius:8px; padding:10px 16px; border:1px solid var(--accent);
+             background:var(--accent); color:#fff; font-weight:500; min-height:42px; }
+    button.ghost { background:#fff; color:var(--accent); }
+    .rangee { display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; }
+    .tag { font-size:13px; color:var(--muted); }
+    /* Scène : la photo, la 3D par-dessus, les points de calage au-dessus */
+    #scene { position:relative; width:100%; background:#efeae0; border:1px solid var(--line);
+             border-radius:10px; overflow:hidden; }
+    #photo  { position:absolute; inset:0; width:100%; height:100%; object-fit:fill; }
+    #vue3d  { position:absolute; inset:0; }
+    #calage { position:absolute; inset:0; touch-action:none; }
+    /* La loupe doit rester au-dessus de tout et ne jamais intercepter le doigt. */
+    #loupe  { position:absolute; top:10px; display:none; pointer-events:none; z-index:5;
+              border:2px solid #fff; border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,.35);
+              background:#fff; }
+    #consigne { background:var(--sage,#4F5E3C); color:#fff; padding:9px 14px; border-radius:8px;
+                font-size:14px; margin-bottom:10px; }
+    #consigne b { font-weight:700; }
+    .aide { background:#f5f2e9; border-left:3px solid var(--sage); padding:10px 12px;
+            border-radius:0 8px 8px 0; font-size:13px; color:var(--muted); margin-bottom:12px; }
+    .ok { color:#2e7d52; } .ko { color:#c0392b; }
+  </style>
+</head>
+<body>
+  <h1>Voir dans une pièce</h1>
+  <p class="subtitle">Pose tes meubles dans la photo d'une vraie pièce, à la bonne échelle.</p>
+
+  <div class="card">
+    <div class="rangee">
+      <div>
+        <label>Photo de la pièce</label>
+        <input type="file" id="fichier" accept="image/*">
+      </div>
+      <button class="ghost" id="btnDemo">Essayer avec une pièce d'exemple</button>
+    </div>
+  </div>
+
+  <div class="aide" id="aide">
+    <b>1.</b> Charge une photo où l'on voit le sol.
+    <b>2.</b> Clique les 4 coins d'un rectangle du sol dont tu connais les dimensions
+    (un carrelage, les angles de la pièce, une planche posée par terre) — une loupe
+    t'aide à viser.
+    <b>3.</b> Saisis ses dimensions réelles, puis <b>traîne le meuble</b> à la souris.
+    <br><b>Astuce :</b> aligne le rectangle sur le mur où ira le meuble — c'est lui qui
+    donne l'orientation, le meuble vient alors droit contre ce mur.
+  </div>
+
+  <div id="consigne">Charge une photo, ou essaie la pièce d'exemple.</div>
+  <div id="scene" style="height:420px"></div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="rangee">
+      <div><label>Largeur du rectangle (mm)</label><input type="number" id="rectL" value="2000" min="100" step="10"></div>
+      <div><label>Profondeur du rectangle (mm)</label><input type="number" id="rectP" value="3000" min="100" step="10"></div>
+      <div>
+        <label>Objectif <span id="valFocale" class="tag"></span></label>
+        <!-- pas rond : un pas de 1 % suffit a decaler la reprojection de
+             plus de 10 px sur une photo de 1600 px de large. -->
+        <input type="range" id="focale" min="40" max="250" step="0.25" value="100" style="width:200px">
+      </div>
+      <div>
+        <label>Sol</label>
+        <select id="selSol"><option value="">— garder le sol de la photo —</option></select>
+      </div>
+      <button class="ghost" id="btnPoints">Replacer les 4 points</button>
+    </div>
+    <div style="margin-top:12px" id="etat" class="tag"></div>
+  </div>
+
+  <div class="card">
+    <div class="rangee">
+      <div><label>Décalage du meuble · gauche-droite (mm)</label><input type="number" id="posX" value="0" step="50"></div>
+      <div><label>Décalage · avant-arrière (mm)</label><input type="number" id="posZ" value="0" step="50"></div>
+    </div>
+    <div class="tag" style="margin-top:8px">Tu peux aussi traîner le meuble directement sur la photo.</div>
+  </div>
+
+  <div class="card">
+    <div class="rangee">
+      <button id="btnPNG">⬇ Télécharger l'image</button>
+      <button class="ghost" id="btnRetour">← Retour au projet</button>
+    </div>
+  </div>
+
+  <script>
+  // Les modules vivent dans js/ sur le site, à plat dans la copie de travail.
+  (function () {
+    var f = ['materiaux-default.js', 'wooder-mode-construction.js', 'wooder-plan2d-editeur.js',
+             'textures-materiaux.js', 'textures-decospan.js', 'sols-decors.js',
+             'wooder-3d.js', 'wooder-photo.js'];
+    function charger(nom, fini) {
+      var s = document.createElement('script'); s.src = 'js/' + nom; s.onload = fini;
+      s.onerror = function () {
+        var s2 = document.createElement('script'); s2.src = nom; s2.onload = fini;
+        s2.onerror = function () { console.warn('module introuvable : ' + nom); fini(); };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }
+    (function suivant(i) {
+      if (i >= f.length) { window.demarrerVisualiseur(); return; }
+      charger(f[i], function () { suivant(i + 1); });
+    })(0);
+  })();
+  </script>
+  <script>
+  window.demarrerVisualiseur = function () {
+    var MAT = window.MATERIAUX_DEFAULT || [];
+    var scene = document.getElementById('scene');
+    var etat  = document.getElementById('etat');
+
+    // ── Les meubles à poser : ceux de l'éditeur, sinon un exemple ────
+    var meubles = null;
+    try {
+      var brut = sessionStorage.getItem('wooder_composition');
+      if (brut) meubles = JSON.parse(brut);
+    } catch (e) { meubles = null; }
+    if (!meubles || !meubles.length) {
+      meubles = [{ nom: 'Exemple', x: 0, y: 0, z: 0, modele: {
+        H: 2000, L: 1600, P: 600, ep: 19, epFond: 8,
+        modeConstruction: 'B_pardessus', materiauDefaut: 'melamine_chene_bardolino_naturel_19',
+        pieds: { active: true, hauteurPlinthe: 100 },
+        racine: { sens: 'v', tailles: [780, 780], enfants: [
+          { sens: 'h', tailles: [500, 480, 480, 480], enfants: [{}, {}, {}, {}] },
+          { facade: { type: 'porte', pose: 'applique', sens: 'droite' } }
+        ] }
+      } }];
+    }
+
+    // ── Éléments de la scène ────────────────────────────────────────
+    var img = document.createElement('img'); img.id = 'photo'; img.style.display = 'none';
+    var hote3d = document.createElement('div'); hote3d.id = 'vue3d';
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.id = 'calage';
+    scene.appendChild(img); scene.appendChild(hote3d); scene.appendChild(svg);
+
+    var vue = WooderVue3D.creer(hote3d, { meubles: meubles, materiaux: MAT, fond: 'photo' });
+
+    // ── Les 4 points de calage, en pourcentage de la scène ──────────
+    // En pourcentage : ils suivent le redimensionnement de la fenêtre sans
+    // qu'on ait à les recalculer.
+    var PTS_DEFAUT = [[0.28, 0.86], [0.72, 0.86], [0.63, 0.60], [0.37, 0.60]];
+    var pts = PTS_DEFAUT.map(function (p) { return p.slice(); });
+    var NOMS = ['avant-gauche', 'avant-droit', 'arrière-droit', 'arrière-gauche'];
+
+    function taille() { return { w: scene.clientWidth, h: scene.clientHeight }; }
+
+    // ── Loupe ───────────────────────────────────────────────────────
+    // Un coin de pièce fait quelques pixels : à l'œil nu, et avec le doigt
+    // par-dessus, on ne peut pas viser. La loupe montre la zone agrandie
+    // avec une croix au centre — c'est elle qu'on aligne, pas le curseur.
+    var ZOOM = 5, LOUPE = 150;
+    var loupe = document.createElement('canvas');
+    loupe.id = 'loupe'; loupe.width = LOUPE; loupe.height = LOUPE;
+    scene.appendChild(loupe);
+    function montrerLoupe(x, y) {          // x, y en pixels de la scène
+      var t = taille();
+      if (!img.naturalWidth) { loupe.style.display = 'none'; return; }
+      var g = loupe.getContext('2d');
+      g.clearRect(0, 0, LOUPE, LOUPE);
+      // la photo est étirée sur toute la scène (object-fit:fill)
+      var sx = x / t.w * img.naturalWidth, sy = y / t.h * img.naturalHeight;
+      var sw = LOUPE / ZOOM * (img.naturalWidth / t.w);
+      var sh = LOUPE / ZOOM * (img.naturalHeight / t.h);
+      g.imageSmoothingEnabled = false;
+      g.drawImage(img, sx - sw / 2, sy - sh / 2, sw, sh, 0, 0, LOUPE, LOUPE);
+      var c = LOUPE / 2;
+      g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(c, c - 14); g.lineTo(c, c + 14);
+      g.moveTo(c - 14, c); g.lineTo(c + 14, c); g.stroke();
+      g.strokeStyle = '#c0392b'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(c, c - 14); g.lineTo(c, c + 14);
+      g.moveTo(c - 14, c); g.lineTo(c + 14, c); g.stroke();
+      // la loupe se range du côté opposé au doigt, sinon la main la cache
+      loupe.style.display = 'block';
+      loupe.style.left = (x < t.w / 2) ? 'auto' : '10px';
+      loupe.style.right = (x < t.w / 2) ? '10px' : 'auto';
+    }
+    function cacherLoupe() { loupe.style.display = 'none'; }
+
+    // ── Pose guidée ─────────────────────────────────────────────────
+    // Bien plus simple que d'attraper 4 pastilles déjà posées : on clique
+    // les 4 coins dans l'ordre, la consigne dit lequel.
+    var aPoser = -1;          // -1 = terminé ; sinon l'indice du prochain
+    var choisi = -1;          // point sélectionné, réglable aux flèches
+    function demarrerPose() {
+      aPoser = 0; choisi = -1;
+      scene.style.cursor = 'crosshair';
+      dessinerPoints(); consigne();
+    }
+    function consigne() {
+      var z = document.getElementById('consigne');
+      if (aPoser >= 0)
+        z.innerHTML = '<b>Clique le coin ' + NOMS[aPoser] + '</b> · point ' +
+                      (aPoser + 1) + ' sur 4';
+      else if (choisi >= 0)
+        z.innerHTML = 'Point <b>' + (choisi + 1) + '</b> (' + NOMS[choisi] + ') sélectionné · ' +
+                      'les <b>flèches</b> le déplacent au pixel, <b>Maj+flèche</b> par 10';
+      else
+        z.innerHTML = 'Glisse un point pour le corriger, ou clique-le puis règle aux flèches.';
+    }
+    function posXY(ev) {
+      var r = scene.getBoundingClientRect();
+      return [Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+              Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))];
+    }
+    // ── Traîner le meuble ───────────────────────────────────────────
+    // L'homographie inverse donne, sous le curseur, le point exact du sol en
+    // millimètres. Le meuble suit donc le doigt sur le plancher, en vraie
+    // perspective : il rapetisse en s'éloignant, sans qu'on calcule rien.
+    var Hcal = null;
+    function solSousCurseur(ev) {
+      if (!Hcal) return null;
+      var t = taille(), p = posXY(ev);
+      return WooderPhoto.solDepuisImage(Hcal, [p[0] * t.w, p[1] * t.h]);
+    }
+    function traineMeuble(ev) {
+      var depart = solSousCurseur(ev);
+      if (!depart) return false;
+      var cx = document.getElementById('posX'), cz = document.getElementById('posZ');
+      var x0 = parseFloat(cx.value) || 0, z0 = parseFloat(cz.value) || 0;
+      scene.style.cursor = 'grabbing';
+      function bouger(e2) {
+        var s = solSousCurseur(e2);
+        if (!s) return;                       // curseur au-dessus de l'horizon
+        cx.value = Math.round(x0 + (s[0] - depart[0]));
+        // le sol va vers le fond en Z croissant, la scène en z décroissant
+        cz.value = Math.round(z0 - (s[1] - depart[1]));
+        posZChoisi = true;
+        placer();
+      }
+      function fin() {
+        window.removeEventListener('pointermove', bouger);
+        window.removeEventListener('pointerup', fin);
+        scene.style.cursor = '';
+      }
+      window.addEventListener('pointermove', bouger); window.addEventListener('pointerup', fin);
+      return true;
+    }
+
+    // un clic dans la scène pose le point suivant ; une fois les 4 posés,
+    // le même geste fait glisser le meuble sur le sol
+    svg.addEventListener('pointerdown', function (ev) {
+      ev.preventDefault();
+      if (aPoser < 0) {
+        if (choisi >= 0) { choisi = -1; dessinerPoints(); consigne(); }
+        traineMeuble(ev);
+        return;
+      }
+      pts[aPoser] = posXY(ev);
+      aPoser = (aPoser < 3) ? aPoser + 1 : -1;
+      dessinerPoints(); consigne();
+      // tant que les 4 coins ne sont pas posés, le calage n'a pas de sens :
+      // il mélangerait les nouveaux points et ceux d'avant.
+      if (aPoser < 0) { scene.style.cursor = ''; cacherLoupe(); caler(); }
+      else etat.innerHTML = 'Pose des points en cours…';
+    });
+    svg.addEventListener('pointermove', function (ev) {
+      if (aPoser < 0) return;
+      var t = taille(), p = posXY(ev);
+      montrerLoupe(p[0] * t.w, p[1] * t.h);
+    });
+    svg.addEventListener('pointerleave', function () { if (aPoser >= 0) cacherLoupe(); });
+
+    // ── Réglage au clavier ──────────────────────────────────────────
+    window.addEventListener('keydown', function (ev) {
+      if (choisi < 0 || aPoser >= 0) return;
+      var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
+      if (!d) return;
+      ev.preventDefault();
+      var t = taille(), pas = ev.shiftKey ? 10 : 1;
+      pts[choisi][0] = Math.min(1, Math.max(0, pts[choisi][0] + d[0] * pas / t.w));
+      pts[choisi][1] = Math.min(1, Math.max(0, pts[choisi][1] + d[1] * pas / t.h));
+      dessinerPoints(); caler();
+      montrerLoupe(pts[choisi][0] * t.w, pts[choisi][1] * t.h);
+    });
+
+    function dessinerPoints() {
+      var t = taille();
+      svg.setAttribute('viewBox', '0 0 ' + t.w + ' ' + t.h);
+      svg.innerHTML = '';
+      function el(n, a) { var e = document.createElementNS(svg.namespaceURI, n);
+        for (var k in a) e.setAttribute(k, a[k]); return e; }
+      // le quadrilatère, pour voir ce qu'on désigne — seulement une fois les
+      // 4 coins posés, sinon il dessine n'importe quoi pendant la pose
+      if (aPoser < 0) {
+        var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + (p[0] * t.w) + ' ' + (p[1] * t.h); }).join(' ') + ' Z';
+        svg.appendChild(el('path', { d: d, fill: 'rgba(79,94,60,.16)', stroke: '#4F5E3C',
+                                     'stroke-width': 2, 'stroke-dasharray': '6 4' }));
+      }
+      pts.forEach(function (p, i) {
+        if (aPoser >= 0 && i >= aPoser) return;      // pas encore posé
+        var x = p[0] * t.w, y = p[1] * t.h;
+        var actif = (i === choisi);
+        var g = el('g', { style: 'cursor:grab' });
+        // cible large et invisible : au doigt, viser un rond de 13 px est perdu
+        g.appendChild(el('circle', { cx: x, cy: y, r: 24, fill: 'transparent' }));
+        g.appendChild(el('circle', { cx: x, cy: y, r: 13, fill: actif ? '#4F5E3C' : '#fff',
+                                     stroke: actif ? '#fff' : '#4F5E3C', 'stroke-width': 3 }));
+        var tx = el('text', { x: x, y: y + 4, 'text-anchor': 'middle', 'font-size': 12,
+                              'font-weight': 700, fill: actif ? '#fff' : '#4F5E3C',
+                              'font-family': 'inherit', style: 'pointer-events:none' });
+        tx.textContent = (i + 1); g.appendChild(tx);
+        g.addEventListener('pointerdown', function (e) { glisser(e, i); });
+        svg.appendChild(g);
+      });
+    }
+    function glisser(e, i) {
+      if (aPoser >= 0) return;
+      e.preventDefault(); e.stopPropagation();
+      choisi = i; dessinerPoints(); consigne();
+      var t = taille();
+      montrerLoupe(pts[i][0] * t.w, pts[i][1] * t.h);
+      function bouger(ev) {
+        pts[i] = posXY(ev);
+        var t2 = taille();
+        dessinerPoints(); caler();
+        montrerLoupe(pts[i][0] * t2.w, pts[i][1] * t2.h);
+      }
+      function fin() {
+        window.removeEventListener('pointermove', bouger);
+        window.removeEventListener('pointerup', fin);
+        cacherLoupe();
+      }
+      window.addEventListener('pointermove', bouger); window.addEventListener('pointerup', fin);
+    }
+
+    // ── Calage : 4 points → homographie → caméra ────────────────────
+    function caler() {
+      if (aPoser >= 0) return;      // pose en cours : les points sont incomplets
+      var t = taille();
+      var L = parseFloat(document.getElementById('rectL').value) || 2000;
+      var P = parseFloat(document.getElementById('rectP').value) || 3000;
+      // Le rectangle au sol, dans le repère de la pièce (mm). Son coin
+      // avant-gauche est l'origine : les meubles s'y posent naturellement.
+      var sol = [[0, 0], [L, 0], [L, P], [0, P]];
+      var image = pts.map(function (p) { return [p[0] * t.w, p[1] * t.h]; });
+      var H = WooderPhoto.homographie(sol, image);
+      if (!H) { Hcal = null; etat.innerHTML = '<span class="ko">Points alignés ou confondus : déplace-les.</span>'; return; }
+      Hcal = H;                       // gardée : sert à traîner le meuble à la souris
+      var f = t.w * (parseFloat(document.getElementById('focale').value) / 100);
+      // le centre du rectangle lève l'ambiguïté du sens de visée
+      var cam = WooderPhoto.camera(H, t.w, t.h, f, [L / 2, P / 2]);
+      if (!cam) { etat.innerHTML = '<span class="ko">Calage impossible avec ces points.</span>'; return; }
+      vue.setCamera(cam);
+      // Contrôle décisif : les 4 coins du rectangle, projetés par la VRAIE
+      // caméra 3D, doivent retomber sur les points cliqués.
+      // le sol est en (X, Z) ; dans la scène le fond est en z négatif
+      var err = 0;
+      sol.forEach(function (s, i) {
+        var q = vue.projeter([s[0], 0, -s[1]]);
+        if (q) err += Math.hypot(q[0] - image[i][0], q[1] - image[i][1]);
+      });
+      err /= sol.length;
+      var hCam = Math.round(cam.position[1]);
+      etat.innerHTML = 'Appareil à <b>' + hCam + ' mm</b> du sol · champ <b>' + cam.fov.toFixed(0) + '°</b> · ' +
+        (err < 2 ? '<span class="ok">calage exact</span>'
+                 : '<span class="ko">écart ' + err.toFixed(1) + ' px</span>');
+      document.getElementById('valFocale').textContent =
+        '(' + Math.round(cam.fov) + '° — ' + (hCam < 300 ? 'appareil très bas' : 'vue normale') + ')';
+    }
+
+    // ── Position du meuble dans la pièce ────────────────────────────
+    // Le meuble est aligné sur les axes du RECTANGLE de calage : c'est lui
+    // qui définit l'orientation de la pièce. On place donc le rectangle le
+    // long du mur où ira le meuble, et il vient droit sans rien tourner.
+    function placer() {
+      var dx = parseFloat(document.getElementById('posX').value) || 0;
+      var dz = parseFloat(document.getElementById('posZ').value) || 0;
+      vue.setMeubles(meubles.map(function (m) {
+        return { modele: m.modele, nom: m.nom, x: (m.x || 0) + dx, y: m.y || 0, z: (m.z || 0) + dz };
+      }));
+      caler();
+    }
+
+    // ── Sols stratifiés EGGER ───────────────────────────────────────
+    // Chaque image couvre 1400 × 1980 mm réels : la texture se répète donc
+    // à la bonne échelle, les lames font leur vraie largeur au sol.
+    (function listeSols() {
+      var sel = document.getElementById('selSol');
+      if (!window.WooderSols) return;
+      var sols = WooderSols.liste();
+      var grp = { classic: null, large: null, autre: null };
+      sols.forEach(function (s) {
+        var cle = (s.classe === 'classic' || s.classe === 'large') ? s.classe : 'autre';
+        if (!grp[cle]) {
+          grp[cle] = document.createElement('optgroup');
+          grp[cle].label = cle === 'classic' ? 'Lames classiques (193 mm)'
+                         : cle === 'large'   ? 'Lames larges (246 mm)' : 'Autres formats';
+          sel.appendChild(grp[cle]);
+        }
+        var o = document.createElement('option');
+        o.value = JSON.stringify({ url: s.url, l: s.l, h: s.h });
+        o.textContent = s.code;
+        grp[cle].appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        vue.setSol(this.value ? JSON.parse(this.value) : null);
+      });
+    })();
+
+    // ── Chargement de la photo ──────────────────────────────────────
+    // Le cadre doit garder EXACTEMENT le format de la photo : le champ de la
+    // caméra est déduit de sa hauteur, un cadre plus plat fausse le calage.
+    var ratioPhoto = 0;
+    // `height` compte la bordure (box-sizing: border-box) alors que le calage
+    // travaille sur la zone intérieure : sans la rajouter, le cadre est plus
+    // plat que la photo de 2 px, ce qui suffit à décaler la reprojection.
+    function ajusterHauteur() {
+      if (!ratioPhoto) return;
+      var bordure = scene.offsetHeight - scene.clientHeight;
+      scene.style.height = (Math.round(scene.clientWidth * ratioPhoto) + bordure) + 'px';
+    }
+    // guider : sur une photo de client les points par défaut ne veulent rien
+    // dire, on enchaîne donc directement sur la pose des 4 coins.
+    function poserPhoto(src, guider) {
+      var i = new Image();
+      i.onload = function () {
+        img.src = src; img.style.display = '';
+        // la scène prend le format de la photo : indispensable, le champ de
+        // la caméra est calculé sur la hauteur de l'image.
+        ratioPhoto = i.height / i.width;
+        ajusterHauteur();
+        setTimeout(function () {
+          defautPosZ(); placer();
+          if (guider) demarrerPose(); else { dessinerPoints(); consigne(); }
+        }, 60);
+      };
+      i.src = src;
+    }
+    document.getElementById('fichier').addEventListener('change', function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      var r = new FileReader();
+      r.onload = function () { poserPhoto(r.result, true); };
+      r.readAsDataURL(f);
+    });
+
+    // ── Pièce d'exemple ─────────────────────────────────────────────
+    // Elle est produite par une VRAIE projection perspective depuis une
+    // caméra connue (1,55 m de haut, à 3,2 m du mur). Ce n'est pas un
+    // détail : une perspective dessinée à l'approximation fausserait le
+    // contrôle de calage, qui ne voudrait alors plus rien dire.
+    // L'appareil est en z positif et regarde vers les z décroissants : dans
+    // cette pièce, « l'avant » (près du photographe) est donc le grand z.
+    var DEMO = { C: [1000, 1550, 5000], vise: [1000, 500, 0], f: 1500, W: 1600, H: 1100,
+                 zAvant: 2500, zArriere: -500 };
+    function projDemo(p) {
+      function sub(a, b) { return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]; }
+      function nn(v) { var n = Math.hypot(v[0],v[1],v[2]); return [v[0]/n, v[1]/n, v[2]/n]; }
+      function cr(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+      function dt(a, b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+      var av = nn(sub(DEMO.vise, DEMO.C)), dr = nn(cr(av, [0,1,0])), ba = cr(av, dr);
+      var v = sub(p, DEMO.C), z = dt(v, av);
+      if (z <= 1) return null;                    // derrière l'appareil
+      return [DEMO.W/2 + DEMO.f*dt(v,dr)/z, DEMO.H/2 + DEMO.f*dt(v,ba)/z];
+    }
+    document.getElementById('btnDemo').addEventListener('click', function () {
+      var W = DEMO.W, Hh = DEMO.H;
+      var c = document.createElement('canvas'); c.width = W; c.height = Hh;
+      var x = c.getContext('2d');
+      x.fillStyle = '#f6f3ec'; x.fillRect(0, 0, W, Hh);                 // le mur
+      // Sol : un damier de 500 mm, projeté point par point.
+      x.strokeStyle = 'rgba(120,110,95,.35)'; x.lineWidth = 1.5;
+      function ligne(a, b) {
+        var p = projDemo(a), q = projDemo(b);
+        if (!p || !q) return;
+        x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke();
+      }
+      x.fillStyle = '#e8e1d3';
+      var solP = [[-4000,0,-2000],[6000,0,-2000],[6000,0,4200],[-4000,0,4200]].map(projDemo);
+      if (solP.every(Boolean)) {
+        x.beginPath(); x.moveTo(solP[0][0], solP[0][1]);
+        solP.slice(1).forEach(function (p) { x.lineTo(p[0], p[1]); });
+        x.closePath(); x.fill();
+      }
+      for (var i = -4000; i <= 6000; i += 500) ligne([i, 0, -2000], [i, 0, 4200]);
+      for (var j = -2000; j <= 4200; j += 500) ligne([-4000, 0, j], [6000, 0, j]);
+      // Les 4 points par défaut tombent EXACTEMENT sur un rectangle
+      // 2000 × 3000 de ce sol : le calage doit alors être parfait, et
+      // l'écart affiché mesure vraiment la qualité du calcul.
+      var za = DEMO.zAvant, zr = DEMO.zArriere;
+      var coins = [[0,0,za],[2000,0,za],[2000,0,zr],[0,0,zr]].map(projDemo);
+      pts = coins.map(function (p) { return [p[0]/W, p[1]/Hh]; });
+      document.getElementById('rectL').value = 2000;
+      document.getElementById('rectP').value = 3000;
+      // sans arrondi : 1500/1600 = 93,75 %, et arrondir a 94 suffit a faire
+      // rater le controle de calage de plus de 10 px.
+      document.getElementById('focale').value = (DEMO.f / W * 100).toFixed(2);
+      poserPhoto(c.toDataURL('image/jpeg', 0.92));
+    });
+
+    document.getElementById('btnPoints').addEventListener('click', demarrerPose);
+
+    // Retour à l'éditeur. On repasse par l'HISTORIQUE : l'éditeur ne sauvegarde
+    // pas son projet, un simple lien rechargerait une page vierge et le travail
+    // serait perdu. Le lien direct ne sert que si on est arrivé ici autrement.
+    document.getElementById('btnRetour').addEventListener('click', function () {
+      if (history.length > 1) history.back();
+      else window.location.href = 'editeur-meuble.html';
+    });
+    // Par défaut le meuble va contre le BORD ARRIÈRE du rectangle — le mur,
+    // puisqu'on demande d'aligner le rectangle dessus. Sans ça il est posé sur
+    // le bord avant et déborde dans la pièce, au ras de l'objectif.
+    // Les panneaux vont de z à z + profondeur : reculer de la profondeur du
+    // rectangle met leur dos exactement sur le mur.
+    var posZChoisi = false;
+    function defautPosZ() {
+      if (posZChoisi) return;
+      var P = parseFloat(document.getElementById('rectP').value) || 3000;
+      document.getElementById('posZ').value = -P;
+    }
+    ['rectL', 'rectP', 'focale'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () {
+        if (id === 'rectP') { defautPosZ(); placer(); } else caler();
+      });
+    });
+    ['posX', 'posZ'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () {
+        if (id === 'posZ') posZChoisi = true;
+        placer();
+      });
+    });
+    document.getElementById('btnPNG').addEventListener('click', function () {
+      // on recompose photo + rendu dans un seul fichier
+      var t = taille();
+      var c = document.createElement('canvas'); c.width = t.w; c.height = t.h;
+      var x = c.getContext('2d');
+      if (img.src) x.drawImage(img, 0, 0, t.w, t.h);
+      var cv = hote3d.querySelector('canvas');
+      if (cv) x.drawImage(cv, 0, 0, t.w, t.h);
+      var a = document.createElement('a');
+      a.href = c.toDataURL('image/jpeg', 0.92); a.download = 'wooder-piece.jpg'; a.click();
+    });
+    window.addEventListener('resize', function () {
+      ajusterHauteur();
+      dessinerPoints(); caler();
+    });
+
+    dessinerPoints();
+    etat.textContent = 'Charge une photo, ou essaie la pièce d\'exemple.';
+    window.visu = { vue: vue, meubles: meubles, caler: caler, points: function () { return pts; } };
+  };
+  </script>
+</body>
+</html>

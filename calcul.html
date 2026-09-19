@@ -4,9 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Wooder – Configurateur Meuble</title>
+<link rel="stylesheet" href="wooder-fonts.css"><!-- charte The Wooder -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- Générateur PDF du devis (utilise jsPDF chargé ci-dessus) -->
+  <script src="js/devis-pdf.js"></script>
   <style>
 /* ═══════════════════════════════════════════════════════════════════
    THE WOODER — style.css
@@ -14,275 +20,831 @@
 ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Variables ─────────────────────────────────────────────────── */
+/* Palette unifiée avec les autres outils Wooder (espace-pro,
+   wooder-main-oeuvre, wooder-materiaux). Pour ajuster la palette,
+   ne toucher qu'à ce bloc — les anciennes variables (--gold, --green,
+   etc.) sont conservées comme alias pour ne pas casser le CSS legacy. */
 :root {
-  --bg:      #f5f2ee;
-  --surface: #ffffff;
-  --border:  #222222;
-  --gold:    #8B6914;
-  --gold-lt: #fffdf0;
-  --text:    #1a1a1a;
-  --muted:   #888888;
-  --green:   #2d6a2d;
-  --red:     #c0392b;
-  --blue:    #1a3a8f;
+  /* — Palette moderne (nouveaux noms, utilisables progressivement) — */
+  --bg:          #f5f1e8;
+  --bg-card:     #fffdf8;
+  --bg-soft:     #fbf7ed;
+  --line:        #e8e0cf;
+  --line-strong: #c8bda5;
+  --text:        #2a2520;
+  --text-soft:   #6b6259;
+  --text-mute:   #8b8275;
+  --accent: #4F5E3C; --sage:#A7B98C; --sage-soft:#DCE6CF; --sage-deep:#4F5E3C;
+  --accent-dark: #6b5234;
+  --success:     #4a7c59;
+  --warning:     #b8915a;
+  --danger:      #b84b4b;
+
+  /* — Alias legacy (compatibilité ascendante avec le CSS existant) — */
+  --surface: var(--bg-card);
+  --border:  var(--accent-dark);
+  --gold:    var(--accent);
+  --gold-lt: var(--bg-soft);
+  --muted:   var(--text-mute);
+  --green:   var(--success);
+  --red:     var(--danger);
+  --blue:    #4a6fa5;
+
+  /* — Typographie — */
+  --font-display: 'MADE Tommy', Georgia, serif;
+  --font-body: 'Lato', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', Menlo, Consolas, monospace;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); font-family: Georgia, serif; color: var(--text); line-height: 1.5; }
+body {
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: var(--text);
+  line-height: 1.5;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 /* ── Header ────────────────────────────────────────────────────── */
 .app-header {
   background: var(--text);
-  color: #fff;
-  padding: 14px 18px;
+  color: var(--bg-card);
+  padding: 16px 22px;
   position: sticky;
   top: 0;
   z-index: 100;
   display: flex;
   align-items: baseline;
-  gap: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  gap: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.15);
 }
-.app-header h1 { font-size: 20px; letter-spacing: 3px; font-weight: normal; color: #fff; }
-.app-header .sub { font-size: 10px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: 1.5px; }
-#headerStatus { margin-left: auto; font-size: 10px; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing: 1px; }
+.app-header h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--bg-card);
+}
+.app-header .sub {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(255, 253, 248, 0.55);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+#headerStatus {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 253, 248, 0.45);
+  text-transform: none;
+  letter-spacing: 0;
+}
 
 /* ── Layout ────────────────────────────────────────────────────── */
 .app-body { padding: 14px 14px 80px; max-width: 900px; margin: 0 auto; }
 
+/* ── Wizard multi-étapes ───────────────────────────────────────── */
+.wiz-bar { position: sticky; top: 0; z-index: 50; background:#fff; border-bottom:1px solid #e6e6e6;
+  display:flex; gap:2px; padding:10px 8px; margin:-14px -14px 16px; overflow-x:auto; }
+.wiz-step { flex:1 0 auto; min-width:78px; display:flex; flex-direction:column; align-items:center; gap:5px;
+  cursor:pointer; padding:4px 6px; border-radius:8px; font-size:10.5px; line-height:1.2; color:#9a9a9a; text-align:center;
+  user-select:none; transition:color .15s; }
+.wiz-step .wiz-num { width:26px; height:26px; border-radius:50%; background:#e6e6e6; color:#777;
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; transition:background .15s,color .15s; }
+.wiz-step.done .wiz-num { background:#c9b27a; color:#fff; }
+.wiz-step.active { color:#1a1a1a; font-weight:600; }
+.wiz-step.active .wiz-num { background:#1a1a1a; color:#fff; }
+.wiz-nav { position:sticky; bottom:0; z-index:50; background:#fff; border-top:1px solid #e6e6e6;
+  display:flex; justify-content:space-between; gap:10px; padding:12px 0; margin:16px -14px -80px; padding-left:14px; padding-right:14px; }
+.wiz-nav .btn { min-width:130px; }
+
 /* ── Sections accordéon ────────────────────────────────────────── */
-.section { background: var(--surface); border: 1.5px solid var(--border); margin-bottom: 8px; transition: box-shadow .15s; }
-.section:hover { box-shadow: 2px 4px 12px rgba(0,0,0,.08); }
-.section-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; user-select: none; transition: background .1s; }
-.section-header:hover { background: var(--bg); }
-.section-header.active { background: var(--text); color: #fff; }
-.section-title { display: flex; align-items: center; gap: 9px; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
-.section-icon { font-size: 15px; }
-.section-arrow { font-size: 9px; transition: transform .2s; color: var(--muted); flex-shrink: 0; }
+.section {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  transition: border-color .15s, box-shadow .15s;
+  overflow: hidden;
+}
+.section:hover { border-color: var(--line-strong); }
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s;
+}
+.section-header:hover { background: var(--bg-soft); }
+.section-header.active {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+.section-icon { font-size: 16px; opacity: 0.7; }
+.section-arrow {
+  font-size: 10px;
+  transition: transform .2s;
+  color: var(--text-mute);
+  flex-shrink: 0;
+}
 .section-arrow.open { transform: rotate(90deg); }
-.section-header.active .section-arrow { color: rgba(255,255,255,.5); }
-.section-badge { font-size: 9px; background: #f0ece6; color: var(--gold); padding: 2px 7px; border-radius: 10px; letter-spacing: .5px; white-space: nowrap; }
-.section-header.active .section-badge { background: rgba(255,255,255,.15); color: #fff; }
-.section-body { display: none; padding: 15px; border-top: 1px solid #eee; }
+.section-header.active .section-arrow { color: var(--accent); }
+.section-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.section-header.active .section-badge {
+  background: var(--bg-card);
+  color: var(--accent);
+}
+.section-body { display: none; padding: 18px; }
 .section-body.open { display: block; }
-.section.result .section-header { border-left: 3px solid var(--gold); }
-.section.result.has-data .section-header { border-left-color: var(--green); }
+.section.result .section-header { border-left: 3px solid var(--accent); }
+.section.result.has-data .section-header { border-left-color: var(--success); }
 
 /* ── Grilles ───────────────────────────────────────────────────── */
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 
 /* ── Champs formulaire ─────────────────────────────────────────── */
-.field { display: flex; flex-direction: column; gap: 3px; }
-.field label { font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-.field input, .field select {
-  border: 1.5px solid #ccc; padding: 8px 9px; font-size: 13px;
-  font-family: Georgia, serif; background: #fafafa; width: 100%;
-  appearance: none; -webkit-appearance: none; transition: border-color .12s;
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-soft);
+  font-weight: 500;
 }
-.field input:focus, .field select:focus { border-color: var(--gold); outline: none; background: var(--gold-lt); }
+.field input, .field select {
+  border: 1px solid var(--line);
+  padding: 9px 11px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  background: var(--bg-card);
+  color: var(--text);
+  width: 100%;
+  border-radius: 7px;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color .12s, background .12s;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
+.field input[type="number"].num,
+.field input.num { font-family: var(--font-mono); }
 
 /* ── Upload zone ───────────────────────────────────────────────── */
 .upload-zone {
-  border: 2px dashed #bbb; padding: 24px 14px; text-align: center;
-  cursor: pointer; background: #fafafa; margin-bottom: 10px;
-  position: relative; transition: border-color .15s, background .15s; display: block;
+  border: 2px dashed var(--line-strong);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-soft);
+  margin-bottom: 12px;
+  position: relative;
+  transition: border-color .15s, background .15s;
+  display: block;
 }
-.upload-zone:hover, .upload-zone.drag-over { border-color: var(--gold); background: var(--gold-lt); }
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--bg-card);
+}
 .upload-zone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
-.upload-icon { font-size: 30px; color: #ccc; margin-bottom: 7px; }
-.upload-zone p { font-size: 13px; color: #666; }
+.upload-icon { font-size: 32px; color: var(--text-mute); margin-bottom: 8px; }
+.upload-zone p { font-size: 13px; color: var(--text-soft); }
 .upload-zone p b { color: var(--text); }
-.upload-zone p.small { font-size: 11px; color: #aaa; margin-top: 3px; }
+.upload-zone p.small { font-size: 11px; color: var(--text-mute); margin-top: 4px; }
 
 /* ── Boutons ───────────────────────────────────────────────────── */
 .btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 9px 16px; font-size: 11px; font-family: Georgia, serif;
-  text-transform: uppercase; letter-spacing: 1px; cursor: pointer;
-  border: 1.5px solid var(--border); background: var(--border); color: #fff;
-  margin-right: 5px; margin-top: 4px;
-  transition: opacity .12s, transform .08s; white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  border: 1px solid var(--text);
+  background: var(--text);
+  color: var(--bg-card);
+  margin-right: 6px;
+  margin-top: 4px;
+  border-radius: 7px;
+  transition: all .15s;
+  white-space: nowrap;
 }
+.btn:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
-.btn-white { background: #fff; color: var(--text); }
-.btn-white:hover { background: var(--bg); }
-.btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
-.btn-gold:hover { background: #7a5c12; }
-.btn-danger { background: #fff; border-color: var(--red); color: var(--red); }
-.btn-sm { padding: 5px 10px; font-size: 10px; margin: 0; }
+.btn-white {
+  background: var(--bg-card);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.btn-white:hover { background: var(--bg-soft); border-color: var(--accent); }
+.btn-gold {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-card);
+}
+.btn-gold:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn-danger {
+  background: var(--bg-card);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.btn-danger:hover { background: #fce4e4; }
+.btn-sm { padding: 6px 12px; font-size: 12px; margin: 0; }
 
 /* ── Tabs ──────────────────────────────────────────────────────── */
-.tabs { display: flex; margin-bottom: 10px; }
-.tab { padding: 8px 15px; font-size: 10px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--text); text-transform: uppercase; letter-spacing: .8px; margin-right: -1px; transition: background .1s; }
-.tab.active { background: var(--text); color: #fff; }
-.tab:hover:not(.active) { background: var(--bg); }
+.tabs { display: flex; margin-bottom: 12px; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab {
+  padding: 9px 16px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .12s, border-color .12s;
+}
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab:hover:not(.active) { color: var(--text); }
 
 /* ── Textarea ──────────────────────────────────────────────────── */
 textarea {
-  width: 100%; min-height: 100px; border: 1.5px solid #ccc; padding: 9px;
-  font-size: 12px; font-family: 'Courier New', monospace;
-  background: #fafafa; resize: vertical; line-height: 1.6; transition: border-color .12s;
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid var(--line);
+  padding: 11px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--bg-soft);
+  color: var(--text);
+  border-radius: 7px;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color .12s, background .12s;
 }
-textarea:focus { border-color: var(--gold); outline: none; }
+textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
 
 /* ── Messages ──────────────────────────────────────────────────── */
-.msg-err  { background: #fff0f0; border: 1px solid #f0a0a0; padding: 9px 12px; font-size: 12px; color: var(--red);   margin-top: 7px; }
-.msg-ok   { background: #f0fff0; border: 1px solid #a0d0a0; padding: 9px 12px; font-size: 12px; color: var(--green); margin-top: 7px; }
-.msg-info { background: #f0f4ff; border: 1px solid #a0b0d0; padding: 9px 12px; font-size: 12px; color: var(--blue);  margin-top: 7px; }
-.loading { padding: 12px; font-size: 13px; color: var(--muted); text-align: center; }
-.spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid #ddd; border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; margin-right: 7px; vertical-align: middle; }
+.msg-err  {
+  background: #fde8e8;
+  border: 1px solid #f0a0a0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--danger);
+  margin-top: 8px;
+  border-radius: 8px;
+}
+.msg-ok   {
+  background: #e9f3ec;
+  border: 1px solid #a0d0a0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--success);
+  margin-top: 8px;
+  border-radius: 8px;
+}
+.msg-info {
+  background: #e8eef7;
+  border: 1px solid #a0b0d0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--blue);
+  margin-top: 8px;
+  border-radius: 8px;
+}
+.loading { padding: 14px; font-size: 13px; color: var(--text-soft); text-align: center; }
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Tableaux ──────────────────────────────────────────────────── */
 .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-th { background: var(--text); color: #fff; padding: 7px 9px; text-align: left; font-weight: normal; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; white-space: nowrap; }
-td { padding: 6px 9px; border-bottom: 1px solid #f0ece6; vertical-align: middle; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th {
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: #fdf9f4; }
+tr:hover td { background: var(--bg-soft); }
 
 /* ── Badges types ──────────────────────────────────────────────── */
-.badge { display: inline-block; padding: 2px 6px; font-size: 9px; border-radius: 2px; white-space: nowrap; }
-.b-lateral  { background: #f0e8d8; color: #8B6914; border: 1px solid #8B6914; }
-.b-montant  { background: #f0e8d8; color: #8B6914; border: 1px solid #8B6914; }
-.b-panneau  { background: #e8e8f5; color: #3a3a8f; border: 1px solid #3a3a8f; }
-.b-etagere  { background: #f5e8e0; color: #8f4a2f; border: 1px solid #8f4a2f; }
-.b-porte    { background: #e8f0e0; color: #2d6a2d; border: 1px solid #4a7c2f; }
-.b-tiroir   { background: #e0f0e8; color: #2d6a4a; border: 1px solid #2d6a4a; }
-.b-plinthe  { background: #f0f0e0; color: #5a5a00; border: 1px solid #8a8a00; }
-.b-fond, .b-autre { background: #eee; color: #555; border: 1px solid #aaa; }
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border-radius: 5px;
+  white-space: nowrap;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.b-lateral  { background: #f0e8d8; color: var(--accent-dark); border: 1px solid var(--accent); }
+.b-montant  { background: #f0e8d8; color: var(--accent-dark); border: 1px solid var(--accent); }
+.b-panneau  { background: #e8e8f5; color: #3a3a8f; border: 1px solid #5a5aa5; }
+.b-etagere  { background: #f5e8e0; color: #8f4a2f; border: 1px solid #a55a3f; }
+.b-porte    { background: #e9f3ec; color: var(--success); border: 1px solid var(--success); }
+.b-tiroir   { background: #e0f0e8; color: #2d6a4a; border: 1px solid #3d7a5a; }
+.b-plinthe  { background: #f4f0d8; color: #6a6a1a; border: 1px solid #8a8a3a; }
+.b-fond, .b-autre { background: var(--bg-soft); color: var(--text-soft); border: 1px solid var(--line-strong); }
 
 /* ── Stats boxes ───────────────────────────────────────────────── */
-.stats-grid   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+.stats-grid   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
 .stats-grid-4 { grid-template-columns: repeat(4, 1fr); }
-.stat-box { background: var(--bg); border: 1.5px solid #ddd; padding: 11px; }
-.stat-val { font-size: 19px; color: var(--gold); line-height: 1.1; margin-bottom: 3px; }
-.stat-val.green { color: var(--green); }
-.stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; }
+.stat-box {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  padding: 14px;
+  border-radius: 10px;
+}
+.stat-val {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.stat-val.green { color: var(--success); }
+.stat-lbl {
+  font-size: 11px;
+  color: var(--text-soft);
+  text-transform: none;
+  letter-spacing: 0;
+}
 
 /* ── Carte meuble ──────────────────────────────────────────────── */
-.meuble-card { background: #fafafa; border: 1.5px solid #ddd; margin-bottom: 10px; padding: 12px; transition: border-color .12s; }
-.meuble-card:hover { border-color: var(--gold); }
-.meuble-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
-.meuble-num { font-size: 9px; font-weight: bold; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; }
-.meuble-name-input { border: 1px solid #ddd; padding: 5px 7px; font-size: 13px; font-family: Georgia, serif; width: 100%; max-width: 220px; margin-top: 3px; background: #fff; }
-.meuble-name-input:focus { border-color: var(--gold); outline: none; }
-.meuble-params { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.meuble-param label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; display: block; margin-bottom: 2px; }
-.meuble-param select { border: 1.5px solid var(--gold); padding: 6px 7px; font-size: 11px; font-family: Georgia, serif; background: var(--gold-lt); width: 100%; appearance: none; -webkit-appearance: none; }
-.meuble-param input[type="number"] { border: 1px solid #ddd; padding: 6px 7px; font-size: 12px; font-family: Georgia, serif; background: #fff; width: 100%; }
-.meuble-param input[type="number"]:focus, .meuble-param select:focus { border-color: var(--gold); outline: none; background: var(--gold-lt); }
-.meuble-info { font-size: 10px; color: #aaa; margin-top: 5px; font-style: italic; }
+.meuble-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  transition: border-color .12s, background .12s;
+}
+.meuble-card:hover { border-color: var(--line-strong); background: var(--bg-card); }
+.meuble-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.meuble-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.meuble-name-input {
+  border: 1px solid var(--line);
+  padding: 7px 10px;
+  font-size: 14px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--text);
+  width: 100%;
+  max-width: 240px;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  transition: border-color .12s;
+}
+.meuble-name-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
+.meuble-params { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.meuble-param label {
+  font-size: 11px;
+  color: var(--text-soft);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+.meuble-param select {
+  border: 1px solid var(--accent);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  background: var(--bg-soft);
+  color: var(--text);
+  width: 100%;
+  border-radius: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.meuble-param input[type="number"] {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  background: var(--bg-card);
+  color: var(--text);
+  width: 100%;
+  border-radius: 6px;
+}
+.meuble-param input[type="number"]:focus, .meuble-param select:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
+.meuble-info {
+  font-size: 11px;
+  color: var(--text-mute);
+  margin-top: 6px;
+  font-style: italic;
+}
 
 /* ── Divers ────────────────────────────────────────────────────── */
-.note { font-size: 10px; color: #999; margin-top: 5px; font-style: italic; }
-.sep-meuble { background: var(--text); color: #fff; padding: 6px 11px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-top: 12px; }
+.note {
+  font-size: 11px;
+  color: var(--text-mute);
+  margin-top: 6px;
+  font-style: italic;
+}
+.sep-meuble {
+  background: var(--text);
+  color: var(--bg-card);
+  padding: 8px 14px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  margin-top: 14px;
+  border-radius: 6px;
+}
 .sep-meuble:first-child { margin-top: 0; }
-.canvas-wrap { overflow-x: auto; margin-top: 10px; background: #fafafa; border: 1px solid #eee; padding: 4px; }
+.canvas-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  padding: 6px;
+  border-radius: 8px;
+}
 .canvas-wrap canvas { display: block; max-width: 100%; }
-.dxf-card { margin-bottom: 16px; }
-.dxf-card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 7px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+.dxf-card { margin-bottom: 18px; }
+.dxf-card-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 /* ── Select global ─────────────────────────────────────────────── */
-select { border: 1px solid #ddd; padding: 4px 6px; font-size: 11px; font-family: Georgia, serif; background: #fafafa; appearance: none; -webkit-appearance: none; width: 100%; }
-select:focus { border-color: var(--gold); outline: none; background: var(--gold-lt); }
+select {
+  border: 1px solid var(--line);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg-card);
+  border-radius: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  transition: border-color .12s;
+}
+select:focus {
+  border-color: var(--accent);
+  outline: none;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
 
 /* ── Sticky bar ────────────────────────────────────────────────── */
-#stickyBar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--text); display: none; align-items: center; padding: 9px 15px; gap: 8px; z-index: 200; box-shadow: 0 -2px 10px rgba(0,0,0,.25); }
+#stickyBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--text);
+  display: none;
+  align-items: center;
+  padding: 11px 18px;
+  gap: 10px;
+  z-index: 200;
+  box-shadow: 0 -2px 16px rgba(0,0,0,.18);
+}
 #stickyBar.visible { display: flex; }
-#stickyLabel { font-size: 10px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: 1px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sticky-btn { padding: 9px 15px; font-size: 10px; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; border: none; white-space: nowrap; transition: opacity .12s; }
-.sticky-btn:hover { opacity: .85; }
-.sticky-main { background: var(--gold); color: #fff; }
+#stickyLabel {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(255, 253, 248, 0.7);
+  letter-spacing: 0;
+  text-transform: none;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sticky-btn {
+  padding: 9px 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  border-radius: 7px;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.sticky-btn:hover { opacity: .9; transform: translateY(-1px); }
+.sticky-main { background: var(--accent); color: var(--bg-card); }
+.sticky-pdf  { background: rgba(255, 253, 248, 0.12); color: var(--bg-card); }
+.sticky-pdf:hover { background: rgba(255, 253, 248, 0.2); }
 
 /* ── Cartes de résultats (4 catégories) ──────────────────────── */
-.result-card { background: var(--surface); border: 1px solid #e0d9cc; border-left: 3px solid var(--gold); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
+.result-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color .12s;
+}
+.result-card:hover { border-color: var(--line-strong); border-left-color: var(--accent); }
 .result-card.hidden { display: none; }
-.result-card-header { padding: 14px 18px; cursor: pointer; display: flex; align-items: center; gap: 14px; background: #fafaf6; transition: background .15s; }
-.result-card-header:hover { background: var(--gold-lt); }
-.result-card-title { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; font-size: 14px; font-family: Georgia, serif; }
-.result-card-title .ico { font-size: 22px; }
-.result-card-metric { flex: 1 1 auto; text-align: right; font-size: 18px; color: var(--gold); font-family: Georgia, serif; font-weight: bold; letter-spacing: .5px; }
+.result-card-header {
+  padding: 16px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-soft);
+  transition: background .15s;
+}
+.result-card-header:hover { background: var(--bg-card); }
+.result-card-title {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.result-card-title .ico { font-size: 22px; opacity: 0.8; }
+.result-card-metric {
+  flex: 1 1 auto;
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0;
+}
 .result-card-metric span { font-variant-numeric: tabular-nums; }
-.result-card-arrow { flex: 0 0 auto; transition: transform .18s; color: var(--muted); font-size: 11px; }
+.result-card-arrow {
+  flex: 0 0 auto;
+  transition: transform .18s;
+  color: var(--text-mute);
+  font-size: 12px;
+}
 .result-card.open .result-card-arrow { transform: rotate(90deg); }
-.result-card-body { padding: 0 16px 16px; display: none; border-top: 1px solid #eee; }
-.result-card.open .result-card-body { display: block; padding-top: 16px; }
-/* Quand les sections existantes sont imbriquées dans une carte, on masque leur header
-   (la carte devient le seul toggle) et on force leur body ouvert */
-.result-card-body .section { margin-bottom: 10px; }
+.result-card-body { padding: 0 18px 18px; display: none; border-top: 1px solid var(--line); }
+.result-card.open .result-card-body { display: block; padding-top: 18px; }
+.result-card-body .section { margin-bottom: 12px; }
 .result-card-body .section.hidden { display: none; }
 .result-card-body .section > .section-header { display: none; }
 .result-card-body .section > .section-body { display: block !important; }
 
 /* ── Accordéon des types de fichiers (dans la carte Fichiers) ── */
-.file-type { border: 1px solid #e5dfd3; border-radius: 3px; margin-bottom: 6px; overflow: hidden; background: #fff; }
-.file-type-header { padding: 11px 14px; cursor: pointer; display: flex; align-items: center; gap: 12px; background: #fafaf6; transition: background .15s; }
-.file-type-header:hover { background: var(--gold-lt); }
-.file-type-title { flex: 0 0 auto; font-size: 12px; color: var(--text); font-family: Georgia, serif; }
-.file-type-count { flex: 1 1 auto; text-align: right; font-size: 11px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
-.file-type-arrow { flex: 0 0 auto; transition: transform .18s; color: var(--muted); font-size: 10px; }
+.file-type {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+.file-type-header {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-soft);
+  transition: background .15s;
+}
+.file-type-header:hover { background: var(--bg-card); }
+.file-type-title {
+  flex: 0 0 auto;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.file-type-count {
+  flex: 1 1 auto;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.file-type-arrow {
+  flex: 0 0 auto;
+  transition: transform .18s;
+  color: var(--text-mute);
+  font-size: 11px;
+}
 .file-type.open .file-type-arrow { transform: rotate(90deg); }
-.file-type-body { padding: 12px 14px; display: none; border-top: 1px solid #eee; background: #fdfcf9; }
+.file-type-body {
+  padding: 14px 16px;
+  display: none;
+  border-top: 1px solid var(--line);
+  background: var(--bg-card);
+}
 .file-type.open .file-type-body { display: block; }
-.file-type-body .note { margin-bottom: 8px; }
-.file-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.file-actions .btn { font-size: 11px; }
-.sticky-pdf  { background: rgba(255,255,255,.12); color: #fff; }
+.file-type-body .note { margin-bottom: 10px; }
+.file-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.file-actions .btn { font-size: 12px; }
 
 /* ── Utilitaires ───────────────────────────────────────────────── */
 .hidden { display: none !important; }
+
+/* Mini-titre de sous-section (remplace les patterns inline
+   text-transform:uppercase;letter-spacing;color:var(--gold)).
+   Le margin-top reste réglable inline si la position l'exige. */
+.subsection-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  font-weight: 500;
+  margin-bottom: 8px;
+  margin-top: 14px;
+}
+.subsection-label:first-child { margin-top: 0; }
+.subsection-label.with-sep {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+}
+
+/* Paragraphe d'introduction d'une section (placé en haut du section-body). */
+.section-intro {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 14px;
+  line-height: 1.55;
+}
+
+/* Encadré pour paramètres avancés conditionnels (Clamex, Cabineo, etc.). */
+.params-encadre {
+  background: var(--bg-soft);
+  border: 1px solid var(--line-strong);
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+/* Note discrète (italique, petite, gris doux). */
+.note-italic {
+  font-size: 11px;
+  color: var(--text-mute);
+  font-style: italic;
+  line-height: 1.45;
+}
 
 /* ── Catalogue éditable (matériaux, connecteurs, etc.) ──────────── */
 .cat-head, .cat-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 28px;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  padding: 4px 6px;
-  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
 }
 .cat-head-2col ~ .cat-row, .cat-head.cat-head-2col {
   grid-template-columns: 2fr 1.2fr 28px;
 }
-/* Les .cat-row suivant un head 2col prennent aussi 2 col. On utilise
-   plutôt un wrapper data-2col quand besoin. Par simplicité on applique
-   en cascade depuis le parent via une classe sur l'host — voir JS. */
 .cat-head {
-  font-size: 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: .8px;
-  color: var(--muted);
-  background: #fafafa;
-  border-bottom: 1.5px solid var(--border);
-  padding: 7px 6px;
+  letter-spacing: 0.06em;
+  color: var(--text-soft);
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line-strong);
+  padding: 9px 8px;
+  font-weight: 500;
 }
-.cat-row:hover { background: var(--gold-lt); }
+.cat-row:hover { background: var(--bg-soft); }
 .cat-row-custom { background: #f0f7ef; }
 .cat-row-custom:hover { background: #e6f2e4; }
 .cat-cell { font-size: 12px; }
 .cat-cell input[type="number"] {
-  border: 1px solid #ccc;
-  padding: 5px 6px;
+  border: 1px solid var(--line);
+  padding: 6px 8px;
   font-size: 12px;
-  font-family: Georgia, serif;
-  background: #fafafa;
+  font-family: var(--font-mono);
+  background: var(--bg-soft);
+  color: var(--text);
   width: 100%;
+  border-radius: 5px;
 }
 .cat-cell input[type="number"]:focus {
-  border-color: var(--gold);
+  border-color: var(--accent);
   outline: none;
-  background: var(--gold-lt);
+  background: var(--bg-card);
 }
 .cat-nom { font-weight: 500; }
 .cat-nom-input {
   border: 1px solid #ccc;
   padding: 4px 6px;
   font-size: 12px;
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   background: #fff;
   width: 100%;
 }
@@ -312,7 +874,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
   background: #fafafa;
   border: 1.5px dashed var(--gold);
   color: var(--gold);
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 12px;
   cursor: pointer;
   transition: background .12s;
@@ -342,7 +904,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
   border: 1px solid #ccc;
   padding: 4px 6px;
   font-size: 11px;
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   background: #fff;
   width: 100%;
 }
@@ -377,6 +939,9 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
 
 <div class="app-body">
 
+  <!-- ══ Barre de cheminement (wizard) ═════════════════════════════════ -->
+  <div class="wiz-bar" id="wizBar"></div>
+
   <!-- ══ 1. IMPORT PDF ═════════════════════════════════════════════════ -->
   <div class="section" id="secImport">
     <div class="section-header active" onclick="toggleSection('secImport')">
@@ -384,7 +949,6 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow open">▶</span>
     </div>
     <div class="section-body open">
-      <div id="listeMeubles"></div>
       <div id="zonePdf">
         <label class="upload-zone" id="dropZone">
           <div class="upload-icon">📄</div>
@@ -394,20 +958,44 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
         </label>
         <div id="pdfStatus"></div>
       </div>
-      <div id="zoneTexte" class="hidden">
-        <p style="font-size:11px;color:#666;margin-bottom:7px">Collez le contenu de la feuille de débit</p>
-        <textarea id="txtPDF" placeholder="Désignation&#9;Longueur&#9;Largeur&#9;Epaisseur&#9;Nombre&#10;Panneau supérieur&#9;2862&#9;581&#9;19&#9;1"></textarea>
+      <div id="listeMeubles"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:10px">
+        <button class="btn btn-danger btn-sm" id="btnVider">🗑 Vider</button>
       </div>
-      <div class="tabs" style="margin-top:10px">
-        <div class="tab active" id="tabPdf"   onclick="switchTab('pdf')">PDF</div>
-        <div class="tab"        id="tabTexte" onclick="switchTab('texte')">Copier-coller</div>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">
-        <button class="btn btn-white" id="btnParser">Analyser le texte</button>
-        <button class="btn btn-white" id="btnExemple">Exemple</button>
-        <button class="btn btn-danger btn-sm" id="btnVider" style="margin-top:4px">🗑 Vider</button>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e3dfd3">
+        <p class="small" style="margin:0 0 6px">Pas encore de PDF ? Dessinez votre meuble et générez-le :</p>
+        <a class="btn btn-white" href="editeur-meuble.html" target="_blank" rel="noopener">✏️ Ouvrir l'éditeur de meuble</a>
       </div>
       <div id="msgParse" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- ══ 1bis. MODE DE CONSTRUCTION ════════════════════════════════════ -->
+  <div class="section" id="secConstruction">
+    <div class="section-header active" onclick="toggleSection('secConstruction')">
+      <div class="section-title"><span class="section-icon">🏗</span><span>Mode de construction</span><span class="section-badge" id="badgeConstruction">À choisir</span></div>
+      <span class="section-arrow open">▶</span>
+    </div>
+    <div class="section-body open">
+      <p class="section-intro">Choix structurel du meuble (montants, plinthe, joues). Détermine le débit, la pose des chants, les perçages CNC et le G-code.</p>
+
+      <!-- Mode A : récap lecture seule, si arrivée depuis analyser-meuble.html -->
+      <div id="construction-recap" style="display:none; padding:16px; background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;">
+        <div style="display:flex; gap:16px; align-items:flex-start;">
+          <div id="construction-recap-svg" style="flex:0 0 120px; width:120px; height:120px; background:#fff; border:1px solid var(--line); border-radius:4px; padding:8px;"></div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:4px;">Mode choisi à l'analyse</div>
+            <div id="construction-recap-label" style="font-weight:700; color:var(--accent); margin-bottom:8px; font-size:15px;">—</div>
+            <div id="construction-recap-attrs" style="font-size:12px; color:var(--muted); line-height:1.5;"></div>
+            <button class="btn btn-white btn-sm" id="btn-construction-modifier" style="margin-top:12px;">Modifier — choisir un autre mode</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode B : picker complet, si démarrage à zéro -->
+      <div id="construction-picker-wrapper">
+        <div id="construction-picker-container"></div>
+      </div>
     </div>
   </div>
 
@@ -418,10 +1006,18 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow">▶</span>
     </div>
     <div class="section-body">
-      <p style="font-size:12px;color:#666;margin-bottom:12px">Sélectionnez les matériaux, connecteurs et quincaillerie à utiliser pour ce meuble. Les prix sont définis dans « Paramétrage Matériaux &amp; Prix ».</p>
+      <p class="section-intro">Sélectionnez les matériaux, connecteurs et quincaillerie à utiliser pour ce meuble. Les prix sont définis dans « Paramétrage Matériaux &amp; Prix ».</p>
+
+      <!-- BARRE PAR-MEUBLE (visible si plusieurs meubles) : chaque meuble a SON
+           matériau / ses connecteurs. « Suivant » passe au meuble suivant. -->
+      <div id="wizMeubleBar" style="display:none;align-items:center;gap:10px;background:#f3ead6;border:1px solid #c9b896;border-radius:8px;padding:8px 12px;margin-bottom:14px">
+        <button type="button" class="btn btn-white btn-sm" id="wizMeublePrec">‹ Précédent</button>
+        <div style="flex:1;text-align:center;font-weight:600;font-size:13px" id="wizMeubleLbl">Meuble 1 / 1</div>
+        <button type="button" class="btn btn-gold btn-sm" id="wizMeubleSuiv">Meuble suivant ›</button>
+      </div>
 
       <!-- MATÉRIAUX -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Matériaux</div>
+      <div class="subsection-label">Matériaux</div>
       <div class="grid2" style="margin-bottom:10px">
         <div class="field">
           <label>Mode matériaux</label>
@@ -436,19 +1032,19 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
         <div class="grid2" style="margin-bottom:10px">
           <div class="field">
             <label id="lblMat19">Matériau panneau 19mm</label>
-            <select id="selMat19" onchange="majPrixMat('selMat19','prixPan19')">
+            <select id="selMat19" onchange="majPrixMat('selMat19','prixPan19'); recalculerSiCalcul()">
               <!-- options générées dynamiquement depuis CATALOG.materiaux -->
             </select>
           </div>
           <div class="field"></div>
         </div>
       </div>
-      <div id="zoneMatFacades" class="hidden" style="background:#fdf9f4;border:1.5px solid var(--gold);padding:10px;margin-bottom:10px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Façades — Portes &amp; tiroirs</div>
+      <div id="zoneMatFacades" class="hidden" class="params-encadre">
+        <div class="subsection-label">Façades — Portes &amp; tiroirs</div>
         <div class="grid2">
           <div class="field">
             <label>Matériau façades</label>
-            <select id="selMatFacades" onchange="majPrixMat('selMatFacades','prixFacades')">
+            <select id="selMatFacades" onchange="majPrixMat('selMatFacades','prixFacades'); recalculerSiCalcul()">
               <!-- options générées dynamiquement -->
             </select>
           </div>
@@ -458,18 +1054,18 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <div class="grid2" style="margin-bottom:14px">
         <div class="field">
           <label>Matériau fond</label>
-          <select id="selMatFond" onchange="majPrixMat('selMatFond','prixPan8')">
+          <select id="selMatFond" onchange="majPrixMat('selMatFond','prixPan8'); recalculerSiCalcul()">
             <!-- options générées dynamiquement -->
           </select>
         </div>
         <div class="field"></div>
       </div>
 
-      <!-- CONNECTEUR -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Connecteur d'assemblage</div>
+      <!-- CONNECTEURS -->
+      <div class="subsection-label">Connecteurs d'assemblage</div>
       <div class="grid2">
         <div class="field">
-          <label>Type de connecteur</label>
+          <label>Connecteur caisson (joues · haut/bas · montants)</label>
           <select id="paramTypeConnecteur" onchange="toggleParamsConnecteur()">
             <option value="excentrique_tourillon">Excentrique + Tourillon</option>
             <option value="clamex_biscuit">Clamex P-14 + Biscuit (centre)</option>
@@ -481,11 +1077,39 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
             <option value="cabineo_12">Cabineo 12</option>
           </select>
         </div>
+        <div class="field">
+          <label>Connecteur étagères fixes (sans Ø32)</label>
+          <select id="paramConnEtagere">
+            <option value="excentrique_tourillon">Excentrique + Tourillon</option>
+            <option value="lamello_biscuit">Biscuit Lamello seul</option>
+            <option value="clamex_p14">Clamex P-14 seul</option>
+            <option value="tenso">Lamello Tenso P-14</option>
+            <option value="domino">Festool Domino</option>
+            <option value="cabineo_8">Cabineo 8</option>
+            <option value="cabineo_12">Cabineo 12</option>
+            <option value="tourillon">Tourillon seul</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Connecteur petits montants (entre étagères)</label>
+          <select id="paramConnMontant">
+            <option value="tourillon">Tourillon seul</option>
+            <option value="excentrique_tourillon">Excentrique + Tourillon</option>
+            <option value="lamello_biscuit">Biscuit Lamello seul</option>
+            <option value="clamex_p14">Clamex P-14 seul</option>
+            <option value="tenso">Lamello Tenso P-14</option>
+            <option value="domino">Festool Domino</option>
+            <option value="cabineo_8">Cabineo 8</option>
+            <option value="cabineo_12">Cabineo 12</option>
+          </select>
+        </div>
         <div class="field"></div>
       </div>
 
       <!-- CHARNIÈRE -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Charnière</div>
+      <div class="subsection-label">Charnière</div>
       <div class="grid2">
         <div class="field">
           <label>Type de charnière</label>
@@ -499,7 +1123,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       </div>
 
       <!-- CHANT -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Chant</div>
+      <div class="subsection-label">Chant</div>
       <div class="grid2">
         <div class="field">
           <label>Type de chant</label>
@@ -511,7 +1135,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       </div>
 
       <!-- TIROIR / COULISSE -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Tiroirs &amp; coulisses</div>
+      <div class="subsection-label">Tiroirs &amp; coulisses</div>
       <div class="grid2">
         <div class="field">
           <label>Type de coulisse</label>
@@ -544,77 +1168,47 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
   </div>
 
   <!-- ══ 3. PARAMÉTRAGE MATÉRIAUX & PRIX ═══════════════════════════════ -->
-  <div class="section" id="secParamsMat">
-    <div class="section-header" onclick="toggleSection('secParamsMat')">
-      <div class="section-title"><span class="section-icon">💰</span><span>Paramétrage Matériaux &amp; Prix</span><span class="section-badge">Catalogue tarifaire — auto-sauvegardé</span></div>
-      <span class="section-arrow">▶</span>
-    </div>
+  <!-- ══ 3. PARAMÉTRAGE MATÉRIAUX & PRIX (LEGACY, MASQUÉ) ════════════
+       Cette section est masquée visuellement car les prix sont désormais
+       gérés depuis l'espace pro :
+         • Matériaux        → outil wooder-materiaux.html
+         • Main d'œuvre     → outil wooder-main-oeuvre.html
+         • Coeff / TVA / Livraison → catalogue main_oeuvre (parametres_devis)
+       Le trait de scie a été déplacé dans « Paramétrage Fabrication ».
+
+       Les inputs DOM internes sont conservés (display:none) parce que
+       prix.js les lit encore pour calculer le devis. Les inputs liés à
+       un catalogue (prixPan19, prixTauxHoraire, prixCoeff, prixTVA,
+       prixLivraison…) sont alimentés automatiquement au boot via
+       catalogues.js (sync Supabase + MAIN_OEUVRE_DOM_BINDINGS).
+
+       TODO Phase 2 : refactor prix.js pour lire directement les
+       catalogues, puis supprimer toute cette section.
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="secParamsMat" style="display:none">
     <div class="section-body">
-      <p style="font-size:12px;color:#666;margin-bottom:12px">Catalogue de tous les tarifs utilisés pour le devis. Les modifications sont <b>sauvegardées automatiquement</b> et restaurées à la prochaine ouverture.</p>
+      <!-- Panneaux — readonly, alimentés par catalogue-ui.js (matériau sélectionné) -->
+      <input type="number" id="prixPan19"        value="22"  min="0" step="0.5">
+      <input type="number" id="prixFacades"      value="45"  min="0" step="0.5">
+      <input type="number" id="prixPan8"         value="18"  min="0" step="0.5">
 
-      <!-- ── PANNEAUX ──────────────────────────────────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Panneaux — Prix actifs (matériau sélectionné)</div>
-      <div class="grid3" style="margin-bottom:10px">
-        <div class="field"><label id="lblPrix19">Prix caisson (€/m²)</label><input type="number" id="prixPan19" value="22" min="0" step="0.5" readonly style="background:#f0ece6;color:#666"></div>
-        <div class="field"><label>Prix façades (€/m²)</label><input type="number" id="prixFacades" value="45" min="0" step="0.5" readonly style="background:#f0ece6;color:#666"></div>
-        <div class="field"><label>Prix fond (€/m²)</label><input type="number" id="prixPan8" value="18" min="0" step="0.5" readonly style="background:#f0ece6;color:#666"></div>
-      </div>
-      <p class="note" style="font-size:10px;color:var(--muted);margin:-4px 0 10px">↑ Synchronisés automatiquement avec le matériau choisi. Modifiez les prix dans le catalogue ci-dessous.</p>
+      <!-- Catalogues éditables (rendus par catalogue-ui.js) -->
+      <div id="catalogueMateriaux"></div>
+      <div id="catalogueConnecteurs"></div>
+      <div id="catalogueCharnieres"></div>
+      <div id="catalogueCoulisses"></div>
+      <div id="catalogueFixations"></div>
+      <div id="catalogueChants"></div>
+      <div id="catalogueUsinages"></div>
 
-      <!-- CATALOGUE MATÉRIAUX -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Catalogue matériaux — prix au m² par usage</div>
-      <div id="catalogueMateriaux"><!-- rendu par catalogue-ui.js --></div>
+      <!-- Services & coefficients — alimentés depuis main_oeuvre via MAIN_OEUVRE_DOM_BINDINGS -->
+      <input type="number" id="prixTauxHoraire" value="55" min="0" step="1" readonly>
+      <input type="number" id="prixLivraison"   value="80" min="0" step="1" readonly>
+      <input type="number" id="prixCoeff"       value="2"  min="1" step="0.1" readonly>
+      <input type="number" id="prixTVA"         value="20" min="0" step="1" readonly>
 
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px">Optimisation</div>
-      <div class="grid2" style="margin-bottom:4px">
-        <div class="field"><label>Trait de scie (mm)</label><input type="number" id="paramTrait" value="3" min="1" max="6" step="0.5"></div>
-        <div class="field"></div>
-      </div>
-      <p class="note" style="font-size:10px;color:var(--muted);margin:-2px 0 4px">Les dimensions des planches brutes sont lues automatiquement sur le matériau sélectionné (colonnes Longueur/Largeur du catalogue ci-dessus).</p>
-
-      <!-- ── QUINCAILLERIE — CONNECTEURS D'ASSEMBLAGE ──────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:6px;padding-top:10px;border-top:1px solid #eee">Connecteurs d'assemblage</div>
-      <div id="catalogueConnecteurs"><!-- rendu par catalogue-ui.js --></div>
-
-      <!-- ── QUINCAILLERIE — CHARNIÈRES ────────────────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Charnières</div>
-      <div id="catalogueCharnieres"><!-- rendu par catalogue-ui.js --></div>
-
-      <!-- ── QUINCAILLERIE — COULISSES & TIROIRS ──────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Coulisses &amp; tiroirs</div>
-      <div id="catalogueCoulisses"><!-- rendu par catalogue-ui.js --></div>
-
-      <!-- ── QUINCAILLERIE — FIXATIONS &amp; ACCESSOIRES ────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px">Fixations &amp; accessoires</div>
-      <div id="catalogueFixations"><!-- rendu par catalogue-ui.js --></div>
-
-      <!-- ── CHANTS ─────────────────────────────────────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:14px;padding-top:10px;border-top:1px solid #eee">Chants — placage + fourniture au ml</div>
-      <p style="font-size:11px;color:#666;margin-bottom:8px">Chaque type de chant a son prix <b>placage</b> au ml et son prix <b>fourniture/colle</b> au ml. Sélectionnez le type utilisé dans « Choix du projet ». Le calcul applique automatiquement +10% sur les ml (chutes de bande).</p>
-      <div id="catalogueChants"><!-- rendu dynamiquement --></div>
-      <button type="button" class="btn" onclick="ajouterChant()" style="margin-top:8px;font-size:12px;padding:6px 12px">+ Ajouter un chant</button>
-
-      <!-- ── PRIX D'USINAGE ────────────────────────────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px;padding-top:10px;border-top:1px solid #eee">Prix d'usinage — coût par opération</div>
-      <p style="font-size:11px;color:#666;margin-bottom:8px">Chaque opération a son tarif unitaire avec son unité (€/trou, €/ml, €/m², €/pce…). Les opérations les plus courantes sont pré-remplies ; ajoutez vos propres usinages avec le bouton ci-dessous.</p>
-      <div id="catalogueUsinages"><!-- rendu par catalogue-ui.js --></div>
-
-      <!-- ── SERVICES ──────────────────────────────────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px;padding-top:10px;border-top:1px solid #eee">Services &amp; Main-d'œuvre</div>
-      <div class="grid3">
-        <div class="field"><label>Taux horaire (€/h)</label><input type="number" id="prixTauxHoraire" value="45" min="0" step="1"></div>
-        <div class="field"><label>Livraison (€)</label><input type="number" id="prixLivraison" value="80" min="0" step="1"></div>
-        <div class="field"></div>
-      </div>
-
-      <!-- ── COEFFICIENTS ──────────────────────────────────────── -->
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px;padding-top:10px;border-top:1px solid #eee">Coefficients de vente</div>
-      <div class="grid2">
-        <div class="field"><label>Coefficient vente</label><input type="number" id="prixCoeff" value="2" min="1" step="0.1"></div>
-        <div class="field"><label>TVA (%)</label><input type="number" id="prixTVA" value="20" min="0" step="1"></div>
-      </div>
-
-      <p class="note" style="margin-top:10px">Tous les prix sont utilisés par le calcul du coût de revient. Modifiez-les à tout moment.</p>
+      <!-- Label dynamique du prix 19mm (utilisé par catalogue-ui.js) -->
+      <span id="lblPrix19"></span>
     </div>
   </div>
 
@@ -625,13 +1219,20 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow">▶</span>
     </div>
     <div class="section-body">
-      <p style="font-size:12px;color:#666;margin-bottom:12px">Paramètres techniques appliqués aux calculs d'usinage. Les valeurs par défaut conviennent à la plupart des projets.</p>
+      <p class="section-intro">Paramètres techniques appliqués aux calculs d'usinage. Les valeurs par défaut conviennent à la plupart des projets.</p>
 
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:4px">Perçage système 32 — par meuble</div>
+      <div class="subsection-label" style="margin-top:4px">Optimisation découpe</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div class="field"><label>Trait de scie (mm)</label><input type="number" id="paramTrait" value="3" min="1" max="6" step="0.5"></div>
+        <div class="field"></div>
+      </div>
+      <p class="note" style="font-size:10px;color:var(--muted);margin:-4px 0 14px">Trait de scie pour l'optimisation. Dimensions des planches lues sur le matériau.</p>
+
+      <div class="subsection-label" style="margin-top:4px">Perçage système 32 — par meuble</div>
       <div id="zonePercageParMeuble"></div>
-      <p class="note" style="margin-bottom:14px">Ces valeurs sont propres à chaque meuble (comme avant) — juste regroupées ici avec les autres paramètres d'usinage.</p>
+      <p class="note" style="margin-bottom:14px">Valeurs propres à chaque meuble.</p>
 
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:4px">Rainure de fond</div>
+      <div class="subsection-label" style="margin-top:4px">Rainure de fond</div>
       <div class="grid2">
         <div class="field"><label>Largeur rainure (mm)</label><input type="number" id="paramRainLargeur" value="8" min="3" max="20" step="0.5"></div>
         <div class="field"><label>Distance bord arrière (mm)</label><input type="number" id="paramRainDistBord" value="10" min="3" max="50" step="0.5"></div>
@@ -641,14 +1242,14 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
         <div class="field"><label>Profondeur rainure — montants (mm)</label><input type="number" id="paramRainProfMontant" value="5" min="2" max="15" step="0.5"></div>
       </div>
 
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:12px">Fond de meuble</div>
+      <div class="subsection-label" style="margin-top:12px">Fond de meuble</div>
       <div class="grid2">
         <div class="field"><label>Épaisseur fond (mm)</label><input type="number" id="paramFondEpaisseur" value="8" min="3" max="19" step="1"></div>
         <div class="field"></div>
       </div>
 
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:12px">Connecteurs — Positionnement &amp; perçage</div>
-      <p style="font-size:10px;color:#888;margin-bottom:8px;font-style:italic">Le type de connecteur se choisit dans « Choix du projet ».</p>
+      <div class="subsection-label" style="margin-top:12px">Connecteurs — Positionnement &amp; perçage</div>
+      <p class="note-italic" style="margin-bottom:8px">Le type de connecteur se choisit dans « Choix du projet ».</p>
       <div class="grid3">
         <div class="field"><label>Exc. distance bord avant (mm)</label><input type="number" id="paramExcAvant" value="100" min="30" max="300" step="5"></div>
         <div class="field"><label>Tourillon distance bord avant (mm)</label><input type="number" id="paramTouAvant" value="140" min="30" max="300" step="5"></div>
@@ -666,8 +1267,8 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       </div>
 
       <!-- Paramètres Clamex + Biscuit (affichés selon le type) -->
-      <div id="zoneParamsClamex" class="hidden" style="background:#fdf9f4;border:1.5px solid var(--gold);padding:10px;margin-top:8px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Clamex P-14 — Spécifications officielles Lamello</div>
+      <div id="zoneParamsClamex" class="hidden" class="params-encadre">
+        <div class="subsection-label">Clamex P-14 — Spécifications officielles Lamello</div>
         <div class="grid3">
           <div class="field"><label>Distance bord avant (mm)</label><input type="number" id="paramClamexAvant" value="100" min="37" max="300" step="5"></div>
           <div class="field"><label>Longueur rainure P-System (mm)</label><input type="number" id="paramClamexLong" value="52" min="40" max="80" step="1"></div>
@@ -678,7 +1279,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
           <div class="field"><label>Ø trou d'accès (mm)</label><input type="number" id="paramClamexAcces" value="6" min="4" max="10" step="0.5"></div>
           <div class="field"><label>Position trou d'accès / centre (mm)</label><input type="number" id="paramClamexAccesOff" value="0" min="-30" max="30" step="1"></div>
         </div>
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px">Biscuit central (biscuit standard Lamello)</div>
+        <div class="subsection-label" style="margin-top:10px">Biscuit central (biscuit standard Lamello)</div>
         <div class="grid3">
           <div class="field"><label>Longueur biscuit #20 (mm)</label><input type="number" id="paramBiscuitLong" value="60" min="40" max="80" step="1"></div>
           <div class="field"><label>Profondeur fente (mm)</label><input type="number" id="paramBiscuitProf" value="10" min="5" max="15" step="0.5"></div>
@@ -692,8 +1293,8 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       </div>
 
       <!-- Paramètres Cabineo (affichés selon le type) -->
-      <div id="zoneParamsCabineo" class="hidden" style="background:#fdf9f4;border:1.5px solid var(--gold);padding:10px;margin-top:8px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Cabineo — Spécifications officielles Lamello</div>
+      <div id="zoneParamsCabineo" class="hidden" class="params-encadre">
+        <div class="subsection-label">Cabineo — Spécifications officielles Lamello</div>
         <div class="grid3">
           <div class="field"><label>Distance bord avant (mm)</label><input type="number" id="paramCabAvant" value="100" min="40" max="300" step="5"></div>
           <div class="field"><label>Nombre par bout</label>
@@ -706,7 +1307,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
           </div>
           <div class="field"><label>Seuil passage à 3 (mm)</label><input type="number" id="paramCabSeuil" value="400" min="200" max="1000" step="50"></div>
         </div>
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;margin-top:10px">Poche fraisée (sur face intérieure de la pièce mâle)</div>
+        <div class="subsection-label" style="margin-top:10px">Poche fraisée (sur face intérieure de la pièce mâle)</div>
         <div class="grid3">
           <div class="field"><label>Longueur poche (mm)</label><input type="number" id="paramCabPocheL" value="33.8" min="30" max="40" step="0.1"></div>
           <div class="field"><label>Largeur poche (mm)</label><input type="number" id="paramCabPocheW" value="16.5" min="14" max="20" step="0.1"></div>
@@ -745,13 +1346,12 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow">▶</span>
     </div>
     <div class="section-body">
-      <p style="font-size:12px;color:#666;margin-bottom:8px">Vérifiez l'ordre des colonnes de gauche à droite en vous aidant de la vue éclatée. Modifiez si nécessaire avant de lancer le calcul.</p>
       <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-        <div id="colonnesImage" style="max-width:340px;min-width:200px;flex:1"></div>
-        <div id="colonnesSelectors" style="flex:1;min-width:220px"></div>
+        <div id="colonnesSelectors" style="flex:1 1 100%;min-width:0"></div>
+        <div id="colonnesImage" style="max-width:260px;flex:0 0 auto"></div>
       </div>
       <div style="margin-top:10px">
-        <button class="btn btn-gold" id="btnValiderColonnes" style="padding:12px 20px;font-size:12px;letter-spacing:1px">✓ Valider l'ordre et voir les résultats</button>
+        <button class="btn btn-gold" id="btnValiderColonnes" style="padding:12px 20px;font-size:13px">✓ Valider l'ordre</button>
         <button class="btn btn-white" id="btnResetColonnes" style="margin-left:8px">↺ Réinitialiser</button>
       </div>
     </div>
@@ -802,7 +1402,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow">▶</span>
     </div>
     <div class="section-body">
-      <p style="font-size:12px;color:#666;margin-bottom:10px">Calcul basé sur les prix définis dans <b>Paramétrage Matériaux & Prix</b>.</p>
+      <p class="section-intro">Calcul basé sur les prix définis dans <b>Paramétrage Matériaux & Prix</b>.</p>
       <button class="btn btn-gold" id="btnCalculPrix" style="margin-top:4px">Calculer le prix</button>
       <div id="prixResultat" class="hidden" style="margin-top:12px">
         <div class="stats-grid stats-grid-4">
@@ -810,6 +1410,9 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
           <div class="stat-box"><div class="stat-val green" id="prixVente">—</div><div class="stat-lbl">Prix vente HT</div></div>
           <div class="stat-box"><div class="stat-val" id="prixTTC">—</div><div class="stat-lbl">Prix TTC</div></div>
           <div class="stat-box"><div class="stat-val" id="prixMarge">—</div><div class="stat-lbl">Marge HT</div></div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin: 14px 0 8px;">
+          <button class="btn btn-gold" onclick="genererDevisPDF()">📄 Télécharger le devis PDF</button>
         </div>
         <div class="scroll" style="margin-top:9px">
           <table><thead><tr><th>Poste</th><th>Détail</th><th>Qté</th><th>PU</th><th>Total HT</th></tr></thead>
@@ -824,7 +1427,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow">▶</span>
     </div>
     <div class="section-body">
-      <div id="tiroirInfo" style="font-size:12px;color:#666;margin-bottom:10px"></div>
+      <div id="tiroirInfo" class="section-intro"></div>
       <div class="stats-grid stats-grid-4">
         <div class="stat-box"><div class="stat-val" id="tiroirNb">—</div><div class="stat-lbl">Tiroirs</div></div>
         <div class="stat-box"><div class="stat-val" id="tiroirType">—</div><div class="stat-lbl">Système</div></div>
@@ -843,7 +1446,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
 
   <div class="result-card hidden" id="cardPlan2D">
     <div class="result-card-header" onclick="toggleResultCard(this.parentElement)">
-      <div class="result-card-title"><span class="ico">🗺️</span>Plan 2D</div>
+      <div class="result-card-title"><span class="ico">🧩</span>Optimisation de panneaux</div>
       <div class="result-card-metric"><span id="metricPlan2D">—</span></div>
       <span class="result-card-arrow">▶</span>
     </div>
@@ -854,6 +1457,12 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="section-arrow">▶</span>
     </div>
     <div class="section-body">
+      <!-- Sens du fil : une essence veinée ne se débite pas en travers. La
+           contrainte coûte de la chute, on peut donc la lever pour comparer. -->
+      <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:#555;margin-bottom:9px;cursor:pointer">
+        <input type="checkbox" id="chkRespecterFil" checked onchange="basculerRespectFil(this.checked)">
+        <span>Respecter le sens du fil (essences veinées uniquement)</span>
+      </label>
       <div id="optiResultat"></div>
       <div class="canvas-wrap"><canvas id="canvasOpti19"></canvas></div>
       <div class="canvas-wrap" style="margin-top:6px"><canvas id="canvasOptiFacades"></canvas></div>
@@ -874,16 +1483,6 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <p class="note">Panneau brut 2800×2070mm — trait de scie 3mm</p>
     </div>
   </div>
-<div class="section result hidden" id="secPlan2D">
-    <div class="section-header" onclick="toggleSection('secPlan2D')">
-      <div class="section-title"><span class="section-icon">🗺️</span><span>Plan 2D coté</span></div>
-      <span class="section-arrow">▶</span>
-    </div>
-    <div class="section-body">
-      <button class="btn btn-gold" id="btnExportPlan" style="margin-bottom:10px">⬇ Exporter PNG</button>
-      <div class="canvas-wrap"><canvas id="planCanvas" style="display:block;margin:0 auto"></canvas></div>
-    </div>
-  </div>
     </div>
   </div>
 
@@ -894,7 +1493,7 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       <span class="result-card-arrow">▶</span>
     </div>
     <div class="result-card-body">
-      <p style="font-size:12px;color:#666;margin-bottom:12px">Cliquer sur un format pour voir et télécharger les fichiers correspondants.</p>
+      <p class="section-intro">Cliquer sur un format pour voir et télécharger les fichiers correspondants.</p>
 
       <!-- PDF -->
       <div class="file-type" id="fileType_pdf">
@@ -950,8 +1549,8 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
         </div>
         <div class="scroll"><table><thead><tr><th>Désignation</th><th>Liaison</th><th>Nb</th><th>Positions X</th><th>Position Y</th><th>DXF</th></tr></thead><tbody id="tbodyConn"></tbody></table></div>
         <button class="btn btn-gold" id="btnZipConn" style="margin-top:9px">⬇ ZIP Connecteurs</button>
-        <div style="margin-top:14px;padding-top:10px;border-top:1px solid #eee">
-          <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px">Tous les types de connecteurs</div>
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line)">
+          <div class="subsection-label">Tous les types de connecteurs</div>
           <div style="display:flex;flex-wrap:wrap;gap:4px">
             <button class="btn btn-gold" id="btnZipTousCompletDXF">⬇ ZIP complet DXF + PDF</button>
             <button class="btn btn-white" id="btnDXFSeulTousConnDXF">🔧 ZIP DXF seuls</button>
@@ -1038,12 +1637,53 @@ select:focus { border-color: var(--gold); outline: none; background: var(--gold-
       </div>
 
       <!-- TOUT TÉLÉCHARGER -->
-      <div style="margin-top:18px;padding-top:14px;border-top:2px solid #eee;text-align:center">
-        <button class="btn btn-gold" onclick="toutTelecharger()" style="width:100%;padding:14px;font-size:12px;letter-spacing:1.5px">⬇ TOUT TÉLÉCHARGER — projet complet (1 ZIP)</button>
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);text-align:center">
+        <button class="btn btn-gold" onclick="toutTelecharger()" style="width:100%;padding:14px;font-size:13px;font-weight:600">⬇ Tout télécharger — projet complet (1 ZIP)</button>
         <p class="note" style="margin-top:6px">Un seul ZIP avec tous les formats, organisé par dossiers.</p>
       </div>
 
     </div>
+  </div>
+
+  <script>
+  /* Masque les formats de fabrication désactivés (voir FORMATS_ACTIFS).
+     On masque le bloc entier plutôt que le bouton : un format à moitié
+     visible laisse croire qu'il est disponible. Le code reste chargé, donc
+     repasser le drapeau à `true` le rouvre sans rien d'autre à toucher.
+     On attend le chargement complet : FORMATS_ACTIFS est déclaré dans un
+     bloc <script> PLUS BAS, il n'existe pas encore à cet instant. */
+  (function () {
+    function masquer() {
+      var actifs = (typeof FORMATS_ACTIFS === 'object') ? FORMATS_ACTIFS : null;
+      if (!actifs) return;
+      Object.keys(actifs).forEach(function (k) {
+        if (actifs[k]) return;
+        var e = document.getElementById('fileType_' + k);
+        if (e) e.style.display = 'none';
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', masquer);
+    else masquer();
+  })();
+  </script>
+
+  <!-- ══ Notice de montage (section À PART — c'est du montage, pas de la fabrication) ══ -->
+  <div class="result-card hidden" id="cardMontage">
+    <div class="result-card-header" onclick="toggleResultCard(this.parentElement)">
+      <div class="result-card-title"><span class="ico">🪛</span>Notice de montage</div>
+      <div class="result-card-metric"><span id="metricMontage">—</span></div>
+      <span class="result-card-arrow">▶</span>
+    </div>
+    <div class="result-card-body">
+      <p class="section-intro">Instructions de montage illustrées, style prêt-à-poser (pièces numérotées, quincaillerie, étapes éclatées). Un PDF par meuble.</p>
+      <div class="file-actions" id="listMontage"></div>
+    </div>
+  </div>
+
+  <!-- ══ Navigation wizard ════════════════════════════════════════════ -->
+  <div class="wiz-nav" id="wizNav">
+    <button class="btn btn-white" id="wizPrev">← Précédent</button>
+    <button class="btn btn-gold"  id="wizNext">Suivant →</button>
   </div>
 
 </div><!-- fin app-body -->
@@ -1081,6 +1721,17 @@ var RAIN_PROF_LATERAL = 5;    // profondeur rainure sur latéraux/panneaux (mm)
 var RAIN_PROF_MONTANT = 5;    // profondeur rainure sur montants intermédiaires (mm)
 var RAIN_DIST_BORD  = 10;   // distance bord arrière → début rainure (mm)
 var FOND_EPAISSEUR  = 8;    // épaisseur du panneau de fond (mm)
+
+// ── Formats de fabrication proposés ─────────────────────────────
+// Un fichier que lit un HUMAIN (PDF, CSV) se corrige : il voit la cote
+// aberrante avant de scier. Un fichier que lit une MACHINE ne pardonne
+// rien. On ne propose donc que les formats machine réellement éprouvés.
+//   dxf : repris plus tard — un défaut connu subsiste hors perçage 32.
+//   mpr : jamais confronté à une vraie woodWOP Homag.
+//   dwg : ne fait que renvoyer aux DXF ; sans eux il n'a plus d'objet.
+// Le code de génération reste en place : remettre `true` suffit à rouvrir
+// le format, dans l'interface comme dans le ZIP complet.
+var FORMATS_ACTIFS = { pdf: true, dxf: false, mpr: false, dwg: false, gcode: true, csv: true };
 
 // ── Connecteur ──────────────────────────────────────────────────
 var TYPE_CONNECTEUR = 'excentrique_tourillon';
@@ -1231,6 +1882,11 @@ function lireParams() {
   RAIN_DIST_BORD    = parseFloat(document.getElementById('paramRainDistBord').value)     || 10;
   FOND_EPAISSEUR  = parseInt(document.getElementById('paramFondEpaisseur').value, 10)|| 8;
   TYPE_CONNECTEUR = document.getElementById('paramTypeConnecteur').value || 'excentrique_tourillon';
+  // 3 connecteurs distincts : caisson (carcasse) · étagères fixes · petits montants.
+  // Chaque liaison/perçage est tagué avec le bon type dans calculs.js → fab par catégorie.
+  window._connCaisson = TYPE_CONNECTEUR;
+  window._connEtagere = (document.getElementById('paramConnEtagere') || {}).value || TYPE_CONNECTEUR;
+  window._connMontant = (document.getElementById('paramConnMontant') || {}).value || TYPE_CONNECTEUR;
   TYPE_CHARNIERE  = (document.getElementById('paramTypeCharniere') || {}).value || 'blum_inserta';
   TYPE_COULISSE   = document.getElementById('paramTypeCoulisse').value   || 'standard';
   EXC_AVANT       = parseFloat(document.getElementById('paramExcAvant').value)       || 100;
@@ -1478,10 +2134,12 @@ function updateResultMetrics() {
   } catch(e) { console.warn('updateResultMetrics err:', e); }
 
   // Afficher les cartes qui ont maintenant des données
-  ['cardChant','cardPrix','cardPlan2D','cardFichiers'].forEach(function(id) {
+  ['cardChant','cardPrix','cardPlan2D','cardFichiers','cardMontage'].forEach(function(id) {
     var c = document.getElementById(id);
     if (c) c.classList.remove('hidden');
   });
+  var _nbM = (window._meubles || []).length;
+  setText('metricMontage', _nbM > 0 ? _nbM + ' notice' + (_nbM > 1 ? 's' : '') : '—');
 
   // Remplir dynamiquement les listes PDF et CSV
   remplirListeFichiers();
@@ -1501,6 +2159,20 @@ function remplirListeFichiers() {
       }
       h += '</div>';
       listPDF.innerHTML = h;
+    }
+  }
+  // Notices de montage (carte séparée #listMontage)
+  var listMontage = document.getElementById('listMontage');
+  if (listMontage) {
+    var meublesM = window._meubles || [];
+    if (meublesM.length === 0) {
+      listMontage.innerHTML = '<p class="note">Aucun meuble — importer un PDF.</p>';
+    } else {
+      var hm = '';
+      for (var im = 0; im < meublesM.length; im++) {
+        hm += '<button class="btn btn-white" onclick="telechargerMontageMeuble(' + im + ')">🪛 Notice de montage — ' + esc(meublesM[im].nom) + '</button>';
+      }
+      listMontage.innerHTML = hm;
     }
   }
   // CSV
@@ -1523,10 +2195,10 @@ function remplirListeFichiers() {
 
 // ── Tabs import PDF / texte ──────────────────────────────────────
 function switchTab(tab) {
-  document.getElementById('zonePdf').style.display   = tab === 'pdf'   ? 'block' : 'none';
-  document.getElementById('zoneTexte').style.display = tab === 'texte' ? 'block' : 'none';
-  document.getElementById('tabPdf').className   = 'tab' + (tab === 'pdf'   ? ' active' : '');
-  document.getElementById('tabTexte').className = 'tab' + (tab === 'texte' ? ' active' : '');
+  var zp = document.getElementById('zonePdf');   if (zp) zp.style.display = tab === 'pdf'   ? 'block' : 'none';
+  var zt = document.getElementById('zoneTexte'); if (zt) zt.style.display = tab === 'texte' ? 'block' : 'none';
+  var tp = document.getElementById('tabPdf');    if (tp) tp.className = 'tab' + (tab === 'pdf'   ? ' active' : '');
+  var tt = document.getElementById('tabTexte');  if (tt) tt.className = 'tab' + (tab === 'texte' ? ' active' : '');
 }
 
 // ── Messages ─────────────────────────────────────────────────────
@@ -1648,7 +2320,7 @@ var STORAGE_KEY = 'wooder_prefs_v1';
 var STORAGE_IDS = [
   // Choix du projet
   'selModeMat','selMat19','selMatFacades','selMatFond',
-  'paramTypeConnecteur','paramTypeCharniere','paramTypeCoulisse',
+  'paramTypeConnecteur','paramConnEtagere','paramConnMontant','paramTypeCharniere','paramTypeCoulisse',
   // Prix panneaux
   'prixPan19','prixFacades','prixPan8',
   // Dimensions panneaux bruts
@@ -1829,15 +2501,17 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Parser texte manuel
-  document.getElementById('btnParser').addEventListener('click', function () {
+  // Parser texte manuel (désactivé si la zone copier-coller est retirée)
+  var _btnParser = document.getElementById('btnParser');
+  if (_btnParser) _btnParser.addEventListener('click', function () {
     var txt = document.getElementById('txtPDF').value.trim();
     if (!txt) { showMsg('Veuillez coller le texte.', 'err'); return; }
     traiterTexte(txt, 'Meuble collé');
   });
 
   // Exemple
-  document.getElementById('btnExemple').addEventListener('click', function () {
+  var _btnExemple = document.getElementById('btnExemple');
+  if (_btnExemple) _btnExemple.addEventListener('click', function () {
     switchTab('texte');
     document.getElementById('txtPDF').value =
       'Designation\tLongueur\tLargeur\tEpaisseur\tNombre\n' +
@@ -1880,6 +2554,30 @@ document.addEventListener('DOMContentLoaded', function () {
 // COLONNES (ordre UI) - code deplace dans js/colonnes.js
 // ================================================================
 
+// Config PAR MEUBLE (matériau / connecteurs / mode). Si le meuble n'a pas sa
+// propre config (window._meubles[i].matCaisson…), on retombe sur les choix
+// GLOBAUX (selects) → comportement identique tant que le wizard par-meuble
+// n'a rien posé. Le wizard écrira ces champs sur chaque meuble.
+function _cfgMeuble(m) {
+  function gv(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+  function gt(id) { var e = document.getElementById(id); return (e && e.selectedIndex >= 0) ? e.options[e.selectedIndex].text : ''; }
+  m = m || {};
+  return {
+    matCaisson:  m.matCaisson  || gv('selMat19'),
+    matFacades:  m.matFacades  || gv('selMatFacades'),
+    matFond:     m.matFond     || gv('selMatFond'),
+    matCaissonNom: m.matCaissonNom || gt('selMat19'),
+    matFacadesNom: m.matFacadesNom || gt('selMatFacades'),
+    matFondNom:    m.matFondNom    || gt('selMatFond'),
+    modeMat:     m.modeMat     || gv('selModeMat') || 'unique',
+    connCaisson: m.connCaisson || window._connCaisson || (typeof TYPE_CONNECTEUR !== 'undefined' ? TYPE_CONNECTEUR : 'excentrique_tourillon'),
+    connEtagere: m.connEtagere || window._connEtagere || window._connCaisson || 'excentrique_tourillon',
+    connMontant: m.connMontant || window._connMontant || 'tourillon',
+    modeConstruction: m.modeConstruction || (window._modeConstruction && window._modeConstruction.id) || null,
+    pieds:       m.pieds || (window._modeConstruction && window._modeConstruction.pieds) || null
+  };
+}
+
 function lancerCalcul() {
   if (!window._meubles.length) {
     showMsg('Importez au moins un PDF.', 'err');
@@ -1888,10 +2586,18 @@ function lancerCalcul() {
   lireParams();
   syncGlobaux();
 
+  // Lancement « à neuf » : on repart d'une étape colonnes vierge pour que
+  // l'éditeur 2D se ré-affiche et reconstruise son modèle depuis le meuble
+  // courant (évite un modèle / un ordre périmé d'un import précédent).
+  window._plan2dModele = null;
+  window._colonnesOrdre = null;
+  window._plan2dValide = false;   // forcera l'ouverture de l'éditeur 2D
+
   // Construire la liste plate de toutes les pièces
   var items = [];
   for (var mi = 0; mi < window._meubles.length; mi++) {
     var m = window._meubles[mi];
+    var cfgM = _cfgMeuble(m);   // matériau/connecteurs/mode propres à CE meuble (défaut = globaux)
     for (var pi = 0; pi < m.pieces.length; pi++) {
       var p    = m.pieces[pi];
       var type = p._typeForce || detectType(p.designation);
@@ -1899,6 +2605,7 @@ function lancerCalcul() {
         p:           p,
         meuble:      m.nom,
         meubleIdx:   mi,
+        cfg:         cfgM,          // config PAR MEUBLE — doit survivre aux transformations
         type:        type,
         sens:        (type === 'porte' && p.nombre >= 2) ? 'paire' : 'gauche',
         ep:          m.epaisseur   || 19,
@@ -1910,15 +2617,40 @@ function lancerCalcul() {
       });
     }
   }
-  window._itemsCache = items;
-  // Classifier les montants (plein vs étagère) AVANT tous les calculs
+  // Garder la liste brute (avant découpage) pour pouvoir re-décomposer
+  // si l'utilisateur change de mode de construction après coup.
+  window._itemsOriginal = items;
+
+  // Classifier les montants (plein vs étagère) sur la liste BRUTE : on
+  // détecte ainsi les vrais montants pleine hauteur (séparateurs de
+  // colonnes) AVANT tout découpage multi-caisson.
   classifierMontants(items);
 
-  // Vider les tableaux résultats
+  // Montants intermédiaires pleine hauteur → demander à l'utilisateur de
+  // valider l'ordre des colonnes AVANT de découper / calculer. Vrai pour
+  // TOUS les modes de construction (mono- comme multi-caisson).
+  // L'éditeur 2D est TOUJOURS proposé après import (même sans montant central) :
+  // l'artisan peut positionner / AJOUTER étagères, montants, tiroirs, portes
+  // avant de générer le débit et les fichiers de fab. On ne lance le calcul
+  // qu'après « Valider » (qui passe _plan2dValide = true).
+  if (!window._plan2dValide) {
+    window._itemsCache = items;      // items BRUTS (pour afficherSectionColonnes)
+    afficherSectionColonnes(items);
+    return;
+  }
+
+  // Pas de montants (ou ordre déjà validé) → découpage selon le mode puis calcul
+  items = decomposerItemsSelonMode(items);
+  window._itemsCache = items;
+  classifierMontants(items);
+  _wmcFinaliserCalcul(items);
+}
+
+// Séquence de calcul commune (modules + métriques + scroll), réutilisée par
+// lancerCalcul et par l'override de lancerCalculDepuisColonnes.
+function _wmcFinaliserCalcul(items) {
   ['tbodyChant','tbodyPerc','tbodyRain','tbodyConn','tbodyCharn','tbodyCutlist','tbodyPrix','tbodyFond','tbodyTiroirs']
     .forEach(function (id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
-
-  // Lancer les modules dans l'ordre
   calculerChant(items);       // → calculs.js
   calculerPercages(items);    // → calculs.js
   calculerRainures(items);    // → calculs.js
@@ -1926,17 +2658,30 @@ function lancerCalcul() {
   calculerCharnieres(items);  // → calculs.js
   calculerFonds(items);       // → calculs.js
   calculerTiroirs(items);     // → tiroirs
-  dessinerPlan(items);        // → plan2d.js
+  if (document.getElementById('planCanvas')) dessinerPlan(items);  // plan 2D retiré de l'UI
   calculerCutlist(items);     // → cutlist.js → lancerOptimisation() → afficherSectionPrix()
-
-  // Si montants intermédiaires → afficher section colonnes AVANT les calculs
-  var hasMonts = items.some(function(it) { return it.type === 'montant' && it._montantType !== 'etagere'; });
-  if (hasMonts) {
-    afficherSectionColonnes(items);
-    return; // Les calculs seront lancés depuis btnValiderColonnes
+  // Mise à jour des métriques dans les en-têtes de carte + scroll vers 1ère carte
+  if (typeof updateResultMetrics === 'function') {
+    try { updateResultMetrics(); } catch(e) { console.error('updateResultMetrics err:', e); }
   }
+  var firstCard = document.getElementById('cardChant');
+  if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  afficherBoutonTout();
+}
 
-  // Pas de montants → calcul direct
+// ── Recalcul à chaud quand on change un paramètre (matériau, mode de
+//    construction…) APRÈS qu'un calcul complet a déjà été lancé.
+//    No-op tant qu'aucun calcul n'a été fait. Ne rouvre PAS l'étape
+//    colonnes : on réutilise l'ordre déjà validé (window._colonnesOrdre).
+function recalculerSiCalcul() {
+  if (!window._itemsCache || !window._itemsCache.length) return; // rien à recalculer
+  lireParams();
+  syncGlobaux();
+  // Re-décomposer depuis la liste brute : le mode de construction a pu
+  // changer → panneaux / montants doivent être re-découpés en conséquence.
+  var items = decomposerItemsSelonMode(window._itemsOriginal || window._itemsCache);
+  window._itemsCache = items;
+  classifierMontants(items);
   ['tbodyChant','tbodyPerc','tbodyRain','tbodyConn','tbodyCharn','tbodyCutlist','tbodyPrix','tbodyFond','tbodyTiroirs']
     .forEach(function (id) { var el = document.getElementById(id); if (el) el.innerHTML = ''; });
   calculerChant(items);
@@ -1946,15 +2691,299 @@ function lancerCalcul() {
   calculerCharnieres(items);
   calculerFonds(items);
   calculerTiroirs(items);
-  dessinerPlan(items);
+  if (document.getElementById('planCanvas')) dessinerPlan(items);  // plan 2D retiré de l'UI
   calculerCutlist(items);
-  // Mise à jour des métriques dans les en-têtes de carte + scroll vers 1ère carte
+  // Si le prix est déjà affiché, le recalculer : sinon le total (prixVente/
+  // TTC/marge) reste périmé après un changement de matériau ou de mode.
+  var pr = document.getElementById('prixResultat');
+  if (pr && !pr.classList.contains('hidden') && typeof calculerPrix === 'function') {
+    try { calculerPrix(); } catch (e) { console.error('recalcul prix err:', e); }
+  }
   if (typeof updateResultMetrics === 'function') {
     try { updateResultMetrics(); } catch(e) { console.error('updateResultMetrics err:', e); }
   }
-  var firstCard = document.getElementById('cardChant');
-  if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  afficherBoutonTout();
+}
+window.recalculerSiCalcul = recalculerSiCalcul;
+
+// Bascule « respecter le sens du fil » : relance uniquement l'optimisation de
+// coupe (les pièces et leurs dimensions ne changent pas, seule l'orientation
+// autorisée dans le plan de découpe change), puis le prix qui en dépend.
+function basculerRespectFil(actif) {
+  window._respecterFil = !!actif;
+  if (!window._cutlistPieces || !window._cutlistPieces.length) return;
+  try { lancerOptimisation(); } catch (e) { console.error('respect du fil :', e); }
+}
+window.basculerRespectFil = basculerRespectFil;
+
+// ════════════════════════════════════════════════════════════════
+// DÉCOUPAGE SELON LE MODE DE CONSTRUCTION
+// Transforme la liste de pièces AVANT les calculs : découpe les
+// panneaux sup/inf en sous-caissons et double les montants centraux
+// selon le mode choisi (window._modeConstruction). Sans mode multi-
+// caissons → renvoie la liste inchangée (comportement identique).
+// Le nombre/les largeurs de sous-caissons viennent des montants du PDF.
+// ════════════════════════════════════════════════════════════════
+function _wmcClonerItem(it, designation, longueur) {
+  var p2 = {};
+  for (var k in it.p) { if (Object.prototype.hasOwnProperty.call(it.p, k)) p2[k] = it.p[k]; }
+  if (designation) p2.designation = designation;
+  if (longueur != null) {
+    if (p2.longueur >= p2.largeur) p2.longueur = longueur; else p2.largeur = longueur;
+  }
+  var it2 = {};
+  for (var j in it) { if (Object.prototype.hasOwnProperty.call(it, j)) it2[j] = it[j]; }
+  it2.p = p2;
+  return it2;
+}
+
+// Convertit un montant intermédiaire en LATÉRAL plein (multi-caissons).
+// Reprend l'identité du montant mais le TYPE et les DIMENSIONS d'un latéral
+// (hauteur + profondeur), pour qu'il soit fabriqué comme un côté de caisson.
+function _wmcMontantVersLateral(mit, refLat, designation) {
+  var c = _wmcClonerItem(mit, designation, null);
+  c.type = 'lateral';
+  // La HAUTEUR reste celle du montant (déjà calée sur le mode : traversant /
+  // sandwich / pardessus). On n'aligne que la PROFONDEUR sur le latéral.
+  if (refLat) c.p.largeur = refLat.p.largeur;
+  c.p._exMontant = true;
+  return c;
+}
+
+// Plinthe encastrée entre joues : la plinthe occupe le bas du caisson ENTRE les
+// joues (qui, elles, restent pleine hauteur). Les montants intermédiaires
+// reposent au-dessus de la plinthe → leur hauteur est réduite de hPl.
+// On ne touche PAS aux joues (latéraux SANS _exMontant).
+function _wmcReduireMontantsPlinthe(list, hPl) {
+  if (!(hPl > 0)) return list;
+  return list.map(function (it) {
+    // montant intermédiaire pleine hauteur (mono) OU ex-montant devenu latéral
+    // (multi-caisson). On épargne les montants courts entre étagères.
+    var estMontantInter = (it.type === 'montant' && it._montantType !== 'etagere')
+                       || (it.p && it.p._exMontant);
+    if (!estMontantInter) return it;
+    var L = Math.max(it.p.longueur, it.p.largeur);
+    return _wmcClonerItem(it, it.p.designation, Math.round(L - hPl));
+  });
+}
+
+// Hauteur de plinthe (mm) du débit, uniquement si le mode est « plinthe
+// encastrée entre joues ». 0 sinon.
+function _wmcHauteurPlinthe(itemsIn, md) {
+  if (!md || !md.plinthe_encastree) return 0;
+  var hPl = 0;
+  itemsIn.forEach(function (it) {
+    if (it.type === 'plinthe') {
+      var hp = Math.min(it.p.longueur, it.p.largeur);
+      if (hp > hPl) hPl = hp;
+    }
+  });
+  return hPl;
+}
+
+// Largeurs distinctes des colonnes déduites des ÉTAGÈRES du débit importé,
+// dans l'ordre d'apparition (= même logique que calculerConnecteurs : la
+// largeur d'une colonne = la dimension de l'étagère qui n'est PAS la
+// profondeur). C'est la source « dimension des étagères du PDF importé ».
+function _wmcEtagWidths(itemsIn) {
+  if (!itemsIn) return [];
+  var prof = 600;
+  for (var i = 0; i < itemsIn.length; i++) {
+    if (itemsIn[i].type === 'lateral') { prof = Math.min(itemsIn[i].p.longueur, itemsIn[i].p.largeur); break; }
+  }
+  var ws = [];
+  for (var j = 0; j < itemsIn.length; j++) {
+    if (itemsIn[j].type !== 'etagere') continue;
+    var p = itemsIn[j].p;
+    var dL = Math.abs(p.longueur - prof), dW = Math.abs(p.largeur - prof);
+    var le = (dL < dW) ? p.largeur : p.longueur;
+    if (ws.indexOf(le) === -1) ws.push(le);   // 1 largeur par colonne distincte
+  }
+  return ws;
+}
+
+// Largeur de CHAQUE colonne / sous-caisson.
+//   1. ordre validé par l'utilisateur / outil 2D (window._colonnesOrdre[i]) =
+//      la SEULE source fiable de largeurs par colonne ;
+//   2. sinon répartition égale de la largeur intérieure.
+// NB : on ne déduit PLUS les largeurs des étagères du PDF — une étagère peut
+// couvrir plusieurs colonnes (ex. 1221.5 = 2 colonnes), donc sa dimension
+// n'est pas une largeur de colonne. La répartition égale donne la bonne
+// valeur quand les colonnes sont uniformes (cas courant), et l'ordre validé
+// gère les colonnes de largeurs différentes.
+function _wmcLargeursColonnes(nbCol, interieur, itemsIn) {
+  var ord  = window._colonnesOrdre || [];
+  var etag = _wmcEtagWidths(itemsIn);
+  // Les largeurs d'étagères ne sont fiables que si on a EXACTEMENT autant
+  // d'étagères distinctes que de colonnes (sinon une étagère couvre/partage
+  // plusieurs colonnes → ambigu). Sinon on retombe sur la répartition égale.
+  var useEtag = (etag.length === nbCol);
+  var connues = [], sommeConnues = 0, nbInconnues = 0;
+  for (var i = 0; i < nbCol; i++) {
+    var v = (ord[i] != null && ord[i]) ? ord[i] : (useEtag ? etag[i] : null);
+    connues.push(v);
+    if (v != null) sommeConnues += v; else nbInconnues++;
+  }
+  var wReste = nbInconnues > 0 ? Math.max(0, (interieur - sommeConnues) / nbInconnues) : 0;
+  var arr = [];
+  for (var k = 0; k < nbCol; k++) arr.push(connues[k] != null ? connues[k] : wReste);
+  return arr;
+}
+
+function decomposerItemsSelonMode(itemsIn) {
+  var md = window._modeConstruction;
+  var _dbgTypes = {};
+  itemsIn.forEach(function (it) { _dbgTypes[it.type] = (_dbgTypes[it.type] || 0) + 1; });
+  if (!md) { console.warn('[WMC découpage] AUCUN mode sélectionné (window._modeConstruction est nul) → panneaux entiers.'); return itemsIn.slice(); }
+  var splitSup   = (md.pan_sup_continu === false);
+  var splitInf   = (md.pan_inf_continu === false);
+  var doubleMont = (md.nb_montants_centraux == 2);
+  // Plinthe encastrée → hauteur à retrancher aux montants intermédiaires.
+  var hPlinthe = _wmcHauteurPlinthe(itemsIn, md);
+  if (hPlinthe > 0) console.log('[WMC découpage] plinthe encastrée ' + hPlinthe + ' mm → montants intermédiaires raccourcis d\'autant.');
+  console.log('[WMC découpage] mode=' + md.id + ' | splitSup=' + splitSup + ' splitInf=' + splitInf + ' doubleMont=' + doubleMont + ' | types pièces=', _dbgTypes);
+  if (!splitSup && !splitInf && !doubleMont) { console.warn('[WMC découpage] mode sans découpage (pan continus + 1 montant) → panneaux entiers.'); return _wmcReduireMontantsPlinthe(itemsIn.slice(), hPlinthe); }
+
+  var ep = parseFloat(document.getElementById('epaisseur').value) || 19;
+
+  var montantsTous = [], panSupIt = null, panInfIt = null, autres = [], refLateral = null;
+  itemsIn.forEach(function (it) {
+    if (it.type === 'montant') montantsTous.push(it);
+    else if (it.type === 'panneau') {
+      if (!panSupIt) panSupIt = it;
+      else if (!panInfIt) panInfIt = it;
+      else autres.push(it);
+    } else {
+      if (it.type === 'lateral' && !refLateral) refLateral = it;
+      autres.push(it);
+    }
+  });
+
+  // ── Rôle d'un montant déduit de classifierMontants (calculs.js) ─────
+  // _montantType === 'plein'   → montant PLEINE HAUTEUR = vrai séparateur
+  //                              de colonne (converti en latéral en multi-
+  //                              caisson, crée une colonne).
+  // _montantType === 'etagere' → montant COURT/LOCAL (ex. 400 mm entre 2
+  //                              étagères) : reste dans le meuble tel quel.
+  // classifierMontants tourne sur la liste BRUTE avant ce découpage ; on
+  // réutilise donc sa classification (cohérente avec colonnes.js). Fallback
+  // dimension (60 % de la hauteur) si un montant n'a pas été classifié.
+  var refH = refLateral ? Math.max(refLateral.p.longueur, refLateral.p.largeur) : 0;
+  var maxMontLen = 0;
+  montantsTous.forEach(function (m) { var L = Math.max(m.p.longueur, m.p.largeur); if (L > maxMontLen) maxMontLen = L; });
+  if (!refH) refH = maxMontLen;
+  var seuilPlein = 0.6 * refH;
+  // montants      = liste PHYSIQUE (1 entrée par montant réel, p.nombre
+  //                 expansé) → sert au comptage de colonnes et à la
+  //                 conversion en latéraux (multi-caisson).
+  // montantsItems = items d'origine (1 entrée par item, p.nombre conservé)
+  //                 → sert au passage tel quel en mono-caisson.
+  var montants = [], montantsItems = [], montantsLocaux = [];
+  montantsTous.forEach(function (m) {
+    var plein;
+    if (m._montantType === 'plein')        plein = true;
+    else if (m._montantType === 'etagere') plein = false;
+    else plein = (Math.max(m.p.longueur, m.p.largeur) >= seuilPlein); // fallback dimension
+    if (plein) {
+      montantsItems.push(m);
+      // Un item montant peut représenter N montants physiques (p.nombre) :
+      // on l'expanse pour que nbColonnes corresponde à colonnes.js
+      // (afficherSectionColonnes répète aussi par p.nombre).
+      var nb = m.p.nombre || 1;
+      for (var z = 0; z < nb; z++) montants.push(m);
+    } else montantsLocaux.push(m);
+  });
+  // Les montants locaux restent dans le meuble sans transformation.
+  autres = autres.concat(montantsLocaux);
+  if (montantsLocaux.length) console.log('[WMC découpage] ' + montantsLocaux.length + ' montant(s) LOCAL/COURT(s) gardé(s) tel(s) quel(s) (rôle étagère).');
+
+  var nbMont = montants.length;
+  if (nbMont === 0) { console.warn('[WMC découpage] 0 montant PLEINE HAUTEUR détecté → pas de sous-caissons (seuls des montants courts/locaux ?). Montants vus :', montantsTous.map(function(m){return Math.max(m.p.longueur,m.p.largeur);})); return itemsIn.slice(); }
+  var nbCol = nbMont + 1;
+  console.log('[WMC découpage] nbMontants=' + nbMont + ' nbColonnes=' + nbCol + ' | largeurs étagères=', _wmcEtagWidths(itemsIn));
+
+  var refPan = panSupIt || panInfIt;
+  if (!refPan) return itemsIn.slice();
+  var Ltot = Math.max(refPan.p.longueur, refPan.p.largeur);
+  var interieur = Ltot - nbMont * ep;            // largeur dispo pour les colonnes (montants simples)
+  var largeurs = _wmcLargeursColonnes(nbCol, interieur, itemsIn);
+  console.log('[WMC découpage] largeurs colonnes retenues=', largeurs.map(function(w){return Math.round(w);}), '(source:', (window._colonnesOrdre && window._colonnesOrdre.length ? 'ordre validé' : (_wmcEtagWidths(itemsIn).length === nbCol ? 'étagères' : 'répartition égale')) + ')');
+
+  // Choix dimension si montants doublés (ajoute nbMont*ep de matière).
+  var addW = doubleMont ? nbMont * ep : 0;
+  if (addW > 0 && !window._wmcDimChoix) {
+    var agrandir = confirm(
+      'Mode multi-caissons : doubler les ' + nbMont + ' montant(s) ajoute ' + addW + ' mm de matière.\n\n' +
+      '• OK  → AGRANDIR le meuble de ' + addW + ' mm (colonnes inchangées)\n' +
+      '• Annuler → RÉDUIRE les colonnes pour garder la largeur totale (' + Ltot + ' mm)'
+    );
+    window._wmcDimChoix = agrandir ? 'agrandir' : 'reduire';
+  }
+  if (addW > 0 && window._wmcDimChoix === 'reduire') {
+    var perCol = addW / nbCol;
+    largeurs = largeurs.map(function (w) { return w - perCol; });
+  }
+
+  var out = autres.slice();
+
+  // Montants intermédiaires.
+  //  • Multi-caissons (doubleMont) : chaque montant DISPARAÎT et devient
+  //    2 LATÉRAUX pleins, à la taille du latéral (pas la taille montant) :
+  //    latéral droit du caisson de gauche + latéral gauche du caisson de
+  //    droite. Les sous-caissons deviennent des meubles indépendants
+  //    posés côte à côte. → 2×nbMont latéraux ajoutés aux 2 latéraux des
+  //    extrémités = 2 latéraux par caisson.
+  //  • Sinon : montant conservé tel quel.
+  if (doubleMont) {
+    montants.forEach(function (mit, idx) {
+      out.push(_wmcMontantVersLateral(mit, refLateral, mit.p.designation + ' → latéral droit (caisson ' + (idx + 1) + ')'));
+      out.push(_wmcMontantVersLateral(mit, refLateral, mit.p.designation + ' → latéral gauche (caisson ' + (idx + 2) + ')'));
+    });
+  } else {
+    // Mono-caisson : montants conservés tels quels (items d'origine).
+    montantsItems.forEach(function (mit) { out.push(mit); });
+  }
+
+  // Recouvrement des côtés : un panneau « par-dessus » / « par-dessous »
+  // recouvre les 2 côtés du caisson → largeur = largeur intérieure (étagère)
+  // + ep + ep. Un panneau « intérieur » s'insère entre les côtés → largeur =
+  // largeur intérieure (étagère) telle quelle.
+  var deltaSup = (md.pan_sup === 'pardessus')  ? 2 * ep : 0;
+  var deltaInf = (md.pan_inf === 'pardessous') ? 2 * ep : 0;
+
+  // Panneaux : découpés en morceaux ou conservés (allongés si AGRANDIR).
+  function poser(panIt, split, libelle, role, delta) {
+    if (!panIt) return;
+    if (!split) {
+      var lon = (addW > 0 && window._wmcDimChoix === 'agrandir') ? (Ltot + addW) : null;
+      var c = _wmcClonerItem(panIt, panIt.p.designation, lon);
+      c.p._panRole = role;
+      out.push(c);
+      return;
+    }
+    // Montant doublé (nb==2) = vrais caissons autonomes → « caisson k/N ».
+    // Montant simple = UN seul caisson, panneaux juste découpés → « morceau k/N ».
+    var terme = doubleMont ? 'caisson' : 'morceau';
+    for (var k = 0; k < nbCol; k++) {
+      var c2 = _wmcClonerItem(panIt, libelle + ' — ' + terme + ' ' + (k + 1) + '/' + nbCol, Math.round(largeurs[k] + (delta || 0)));
+      c2.p._panRole = role;
+      c2.p._morceau = true;
+      c2.p._caisson = k + 1;
+      out.push(c2);
+    }
+  }
+  poser(panSupIt, splitSup, 'Panneau supérieur', 'sup', deltaSup);
+  poser(panInfIt, splitInf, 'Panneau inférieur', 'inf', deltaInf);
+
+  // Récap à l'utilisateur.
+  var msg = doubleMont
+    ? ('Meuble en ' + nbCol + ' caisson(s) autonome(s) :')
+    : ('Caisson unique (' + nbCol + ' colonne(s)) :');
+  if (splitSup)   msg += '  panneau sup découpé en ' + nbCol + ' morceaux ;';
+  if (splitInf)   msg += '  panneau inf découpé en ' + nbCol + ' morceaux ;';
+  if (doubleMont) msg += '  ' + nbMont + ' montant(s) → latéraux pleins (caissons indépendants côte à côte, ' + (window._wmcDimChoix === 'agrandir' ? 'meuble +' + addW + ' mm' : 'colonnes réduites') + ').';
+  if (typeof showMsg === 'function') showMsg(msg, 'ok');
+
+  return _wmcReduireMontantsPlinthe(out, hPlinthe);
 }
 
 // ── Tout télécharger (ZIP) ────────────────────────────────────────
@@ -2000,18 +3029,45 @@ function telechargerPDFMeuble(idx) {
   window._itemsCache = saved;
 }
 
+// Notice de montage (style prêt-à-poser) — même logique d'isolation par meuble.
+function telechargerMontageMeuble(idx) {
+  if (typeof genererPlansMontagePDF !== 'function') {
+    alert('Le module de notice de montage n\'est pas chargé.\n\nVérifiez que le fichier « pdf-montage.js » est bien présent dans le dossier « js/ » sur le serveur.');
+    return;
+  }
+  var saved = window._itemsCache;
+  window._itemsCache = (saved || []).filter(function (it) { return it.meubleIdx === idx; });
+  if (!window._itemsCache.length) { alert('Aucune pièce.'); window._itemsCache = saved; return; }
+  try {
+    genererPlansMontagePDF(window._meubles[idx] ? window._meubles[idx].nom : 'Meuble');
+  } catch (e) {
+    alert('Erreur lors de la génération de la notice : ' + (e && e.message ? e.message : e));
+    console.error('Notice de montage:', e);
+  }
+  window._itemsCache = saved;
+}
+
 function toutTelecharger() {
   var zip = new JSZip();
   var ep  = parseFloat(document.getElementById('epaisseur').value) || 19;
   var items = window._itemsCache || [];
 
   // ── Dossiers racine organisés par type de fichier ─────────────────
-  var fDXF   = zip.folder('DXF');
-  var fMPR   = zip.folder('MPR');
-  var fGCODE = zip.folder('G-code');
-  var fDWG   = zip.folder('DWG');
-  var fCSV   = zip.folder('CutList');
-  var fPlan  = zip.folder('Plan2D');
+  // Un format désactivé reçoit un dossier MUET : il absorbe les écritures
+  // sans rien produire. On évite ainsi de retoucher les dizaines d'appels
+  // qui remplissent ces dossiers — et donc d'en oublier un.
+  function dossierMuet() {
+    var muet = { file: function () { return muet; }, folder: function () { return muet; } };
+    return muet;
+  }
+  function dossier(actif, nom) { return actif ? zip.folder(nom) : dossierMuet(); }
+
+  var fDXF   = dossier(FORMATS_ACTIFS.dxf,   'DXF');
+  var fMPR   = dossier(FORMATS_ACTIFS.mpr,   'MPR');
+  var fGCODE = dossier(FORMATS_ACTIFS.gcode, 'G-code');
+  var fDWG   = dossier(FORMATS_ACTIFS.dwg,   'DWG');
+  var fCSV   = dossier(FORMATS_ACTIFS.csv,   'CutList');
+  var fPlan  = dossier(FORMATS_ACTIFS.pdf,   'Plan2D');
 
   // DWG : placeholder (format binaire propriétaire Autodesk, non généré côté navigateur)
   fDWG.file('LISEZ-MOI.txt',
@@ -2180,6 +3236,28 @@ function toutTelecharger() {
 
   // ── Manifest global + finalisation après attente des promesses async ──
   Promise.all(connPromises).then(function() {
+    // Le manifeste ne décrit que ce que le ZIP contient RÉELLEMENT : annoncer
+    // un dossier absent ferait chercher l'artisan pour rien.
+    var org = [], tot = [];
+    if (FORMATS_ACTIFS.dxf) {
+      org.push('  DXF/<piece>/          Un dossier par piece, avec tous les DXF associes');
+      org.push('                        (contour, percages, rainure, charnieres, etc.)');
+      org.push('  DXF/_Connecteurs/     DXF des joints entre pieces (Clamex/Cabineo/excentriques)');
+      tot.push('  DXF pieces    : ' + Object.keys(_dxfFolders).length);
+    }
+    if (FORMATS_ACTIFS.mpr) {
+      org.push('  MPR/                  Un .mpr par piece pour centre d\'usinage Homag/Weeke woodWOP');
+      tot.push('  MPR           : ' + nbMPR);
+    }
+    if (FORMATS_ACTIFS.gcode) {
+      org.push('  G-code/               Un .gcode par piece pour CNC 3 axes (GRBL/Mach3/LinuxCNC)');
+      tot.push('  G-code        : ' + nbGCODE);
+    }
+    if (FORMATS_ACTIFS.dwg) org.push('  DWG/                  Non disponible (voir LISEZ-MOI.txt)');
+    if (FORMATS_ACTIFS.csv) org.push('  CutList/              Listes de debit CSV pour optimisation de coupe');
+    if (FORMATS_ACTIFS.pdf) org.push('  Plan2D/               Plan 2D cote en PNG');
+
+    var absents = ['dxf', 'mpr', 'dwg'].filter(function (k) { return !FORMATS_ACTIFS[k]; });
     var manifest = [
       'THE WOODER - Projet complet',
       '===========================',
@@ -2189,26 +3267,20 @@ function toutTelecharger() {
       'Pieces        : ' + ((window._cutlistPieces || []).length),
       '',
       'Organisation du ZIP',
-      '-------------------',
-      '  DXF/<piece>/          Un dossier par piece, avec tous les DXF associes',
-      '                        (contour, percages, rainure, charnieres, etc.)',
-      '  DXF/_Connecteurs/     DXF des joints entre pieces (Clamex/Cabineo/excentriques)',
-      '  MPR/                  Un .mpr par piece pour centre d\'usinage Homag/Weeke woodWOP',
-      '  G-code/               Un .gcode par piece pour CNC 3 axes (GRBL/Mach3/LinuxCNC)',
-      '  DWG/                  Non disponible (voir LISEZ-MOI.txt)',
-      '  CutList/              Listes de debit CSV pour optimisation de coupe',
-      '  Plan2D/               Plan 2D cote en PNG',
+      '-------------------'
+    ].concat(org).concat([
       '',
       'Totaux',
-      '------',
-      '  DXF pieces    : ' + Object.keys(_dxfFolders).length,
-      '  MPR           : ' + nbMPR,
-      '  G-code        : ' + nbGCODE,
+      '------'
+    ]).concat(tot).concat(
+      absents.length ? ['', 'Formats momentanement retires : ' + absents.join(', ').toUpperCase(),
+                        'Ils partent directement en machine et n\'ont pas encore ete verifies.'] : []
+    ).concat([
       '',
       'Les plans PDF par meuble se telechargent individuellement depuis',
       'la carte "Fichiers de fabrication > PDF" dans l\'outil.',
       ''
-    ].join('\r\n');
+    ]).join('\r\n');
     zip.file('LISEZ-MOI.txt', manifest);
 
     zip.generateAsync({ type: 'blob' }).then(function (blob) {
@@ -2398,18 +3470,577 @@ function telechargerZipDXFSeul() {
 <script src="js/mpr.js"></script>
 <script src="js/gcode.js"></script>
 <script src="js/plan2d.js"></script>
+<script src="js/wooder-modes-cotes.js"></script>
 <script src="js/calculs.js"></script>
 <script src="js/tiroirs.js"></script>
 <script src="js/cutlist.js"></script>
 <script src="js/prix.js"></script>
 <script src="js/colonnes.js"></script>
+<!-- Table des décors EGGER : dit quels matériaux sont VEINÉS, donc imposent un
+     sens de débit. Sans elle, le sens du fil n'est contraint que si l'utilisateur
+     l'a réglé explicitement. Générée par generer-textures.ps1. -->
+<script src="js/textures-materiaux.js"></script>
+<script src="js/textures-decospan.js"></script>
+<script src="js/wooder-plan2d-editeur.js"></script>
 <script src="js/pdf-plans.js"></script>
+<script src="js/pdf-montage.js"></script>
 <script src="js/fiche-decoupe.js"></script>
 <script src="js/mapper-photo.js"></script>
 <script src="js/generateurs.js"></script>
+<script src="js/wooder-mode-construction.js"></script>
+<script>
+/* ── ÉDITEUR 2D (remplace l'étape « ordre des colonnes ») ──────────
+   À l'étape colonnes, on affiche désormais l'éditeur 2D
+   (wooder-plan2d-editeur.js) pour POSITIONNER étagères / montants /
+   portes du meuble importé, au lieu des simples sélecteurs de
+   colonnes.js. Repli automatique sur colonnes.js si l'éditeur n'est
+   pas chargé. */
+
+/* Convertit la liste de pièces importées en modèle 2D
+   {H, L, P, ep, racine}. Le PDF ne donne pas les hauteurs d'étagères →
+   réparties à l'égale au départ ; l'utilisateur les ajuste au dessin. */
+function _wmcModeleDepuisItems(items) {
+  items = items || [];
+  var ep = (items[0] && items[0].ep) || 19;
+  var lat = null, panLon = 0;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (it.type === 'lateral' && !lat) lat = it;
+    if (it.type === 'panneau') { var L = Math.max(it.p.longueur, it.p.largeur); if (L > panLon) panLon = L; }
+  }
+  var H = lat ? Math.max(lat.p.longueur, lat.p.largeur) : 2000;
+  var P = lat ? Math.min(lat.p.longueur, lat.p.largeur) : 600;
+  var L = panLon || (lat ? Math.max(600, P) : 1000);
+  var prof = P;
+
+  // Montants PLEINE HAUTEUR (= séparateurs de colonne). On se fie à
+  // _montantType si présent, SINON on retombe sur la dimension (≥ 60 % de la
+  // hauteur) pour ne pas perdre des montants mal/non classés.
+  var seuilPlein = 0.6 * H, nbMont = 0;
+  items.forEach(function (it) {
+    if (it.type !== 'montant' || it._montantType === 'etagere') return;
+    var lng = Math.max(it.p.longueur, it.p.largeur);
+    if (it._montantType === 'plein' || lng >= seuilPlein) nbMont += (it.p.nombre || 1);
+  });
+
+  // Étagères groupées par largeur (≈ largeur de colonne)
+  var groupes = {};
+  items.forEach(function (it) {
+    if (it.type !== 'etagere') return;
+    var dL = Math.abs(it.p.longueur - prof), dW = Math.abs(it.p.largeur - prof);
+    var lar = (dL < dW) ? it.p.largeur : it.p.longueur;
+    var key = Math.round(lar);
+    if (!groupes[key]) groupes[key] = { largeur: lar, nb: 0 };
+    groupes[key].nb += (it.p.nombre || 1);
+  });
+  var widths = Object.keys(groupes).map(function (k) { return groupes[k]; })
+                     .sort(function (a, b) { return b.largeur - a.largeur; });
+
+  function colCase(nbEtag) {
+    if (nbEtag <= 0) return {};
+    var k = nbEtag + 1, Hi = H - 2 * ep;
+    var part = Math.max(20, (Hi - nbEtag * ep) / k);
+    var t = [], e = [];
+    for (var z = 0; z < k; z++) { t.push(part); e.push({}); }
+    return { sens: 'h', tailles: t, enfants: e };
+  }
+
+  // Nb de colonnes = MAX entre (montants pleins + 1) et le nombre de largeurs
+  // d'étagères distinctes → on ne perd ni les montants ni les colonnes
+  // définies par les étagères, et chaque colonne reprend sa largeur d'étagère.
+  var nbCol = Math.max(nbMont + 1, widths.length, 1);
+
+  var modele = { H: H, L: L, P: P, ep: ep, racine: {} };
+  if (nbCol <= 1) {
+    modele.racine = colCase(widths[0] ? widths[0].nb : 0);
+  } else {
+    var ord = (window._colonnesOrdre && window._colonnesOrdre.length === nbCol) ? window._colonnesOrdre : null;
+    // largeur des colonnes : étagère connue → sa largeur ; sinon répartition du reste.
+    var interieur = L - 2 * ep - (nbCol - 1) * ep, sommeC = 0, nbInc = 0, ci;
+    for (ci = 0; ci < nbCol; ci++) { if (widths[ci]) sommeC += widths[ci].largeur; else nbInc++; }
+    var reste = nbInc > 0 ? Math.max(50, (interieur - sommeC) / nbInc) : 0;
+    var tailles = [], enfants = [];
+    for (var c = 0; c < nbCol; c++) {
+      var g = widths[c];
+      tailles.push(ord ? ord[c] : (g ? g.largeur : reste));
+      enfants.push(colCase(g ? g.nb : 0));
+    }
+    modele.racine = { sens: 'v', tailles: tailles, enfants: enfants };
+  }
+  return modele;
+}
+window._wmcModeleDepuisItems = _wmcModeleDepuisItems;
+
+/* ── Convertisseur INVERSE : modèle 2D → liste d'items (source de vérité) ──
+   L'éditeur 2D devient la source de vérité : on régénère le débit ET les
+   positions exactes (étagères, montants, petits montants, façades) à partir
+   du dessin, au lieu de réutiliser les pièces importées. Chaque item porte
+   _pos = {x,y,w,h} en mm (origine coin haut-gauche du meuble, y vers le bas)
+   → exploité ensuite par les fichiers de fab (DXF/MPR/gcode/PDF).
+   Les pièces que le modèle ne représente pas (plinthe…) sont reprises de la
+   liste importée pour ne rien perdre. */
+function _wmcItemsDepuisModele(modele, base) {
+  if (typeof WooderPlan2D === 'undefined' || !WooderPlan2D.layoutDebit) return null;
+  base = base || [];
+  var src = base[0] || {};
+  var m0 = (window._meubles && window._meubles[0]) || {};
+  var ep = Math.round(modele.ep || src.ep || 19);
+  var P  = Math.round(modele.P || src.prof || 600);
+  var L  = Math.round(modele.L);
+  var H  = Math.round(modele.H);
+  var epFond = m0.epFond || 8;
+  // ── Cotes selon le MODE de construction (fidélité au mode) ──────────
+  // Un panneau « par-dessus » (pardessus/pardessous) coiffe le chant de la
+  // joue/du montant à ce bout → la pièce verticale perd 1 ép à ce bout.
+  // Un panneau « intérieur » s'insère entre les joues → largeur = Lint.
+  var _mc = (modele.modeConstruction && typeof WooderModeConstruction !== 'undefined' && WooderModeConstruction.obtenirAttributs)
+            ? WooderModeConstruction.obtenirAttributs(modele.modeConstruction) : null;
+  var _supPD = !!(_mc && _mc.pan_sup === 'pardessus');
+  var _infPD = !!(_mc && _mc.pan_inf === 'pardessous');
+  var _joueH = H - (_supPD ? ep : 0) - (_infPD ? ep : 0);
+  var _montH = (_mc && _mc.montants_centraux === 'sandwich') ? (H - 2 * ep) : _joueH;
+  var _panSupW = _supPD ? L : (L - 2 * ep);   // pardessus = couvre les joues (L) ; intérieur = entre joues (Lint)
+  var _panInfW = _infPD ? L : (L - 2 * ep);
+  var ref = {
+    debLat:      src.debLat   || 96,
+    margeBas:    src.margeBas || 100,
+    meuble:      src.meuble   || m0.nom || 'Meuble',
+    typePortes:  src.typePortes  || 'applique',
+    typePlinthe: src.typePlinthe || 'encastree'
+  };
+  var lay = WooderPlan2D.layoutDebit(modele);
+  var items = [];
+
+  // ── Perçages Ø32 : verdict par colonne + positions d'étagères ────────
+  // perc32 effectif d'une feuille : sa case OU n'importe quel ANCÊTRE marqué
+  // (colonne 'colonne', ou volume divisé en étagères) → étagères amovibles, trame Ø32.
+  function effPerc32(lf) {
+    if (lf.cell && lf.cell.perc32) return lf.cell.perc32;
+    var n = modele.racine, p = lf.path || [];
+    for (var i = 0; i < p.length; i++) { n = n && n.enfants ? n.enfants[p[i]] : null; if (n && n.perc32) return n.perc32; }
+    return null;
+  }
+  // Colonnes (groupées par path[0]) : étendue X, verdict Ø32, étagères (Y depuis le haut)
+  var colonnes = {};
+  lay.feuilles.forEach(function (lf) {
+    var c = (modele.racine.sens === 'v' && lf.path && lf.path.length) ? lf.path[0] : 0;
+    var co = colonnes[c] || (colonnes[c] = { x0: Infinity, x1: -Infinity, perc: false });
+    co.x0 = Math.min(co.x0, lf.x); co.x1 = Math.max(co.x1, lf.x + lf.w);
+    if (effPerc32(lf)) co.perc = true;
+  });
+  // étagères ('h' dividers) → centre Y depuis le haut, rangé par colonne
+  lay.dividers.forEach(function (d) {
+    if (d.sens !== 'h') return;
+    var yc = d.y + ep / 2;
+    Object.keys(colonnes).forEach(function (k) {
+      var co = colonnes[k];
+      if (d.x >= co.x0 - 1 && d.x + d.w <= co.x1 + 1) { (co.shelves = co.shelves || []).push(yc); }
+    });
+  });
+  var colKeys = Object.keys(colonnes).map(Number).sort(function (a, b) { return colonnes[a].x0 - colonnes[b].x0; });
+  // Largeurs EXACTES par caisson (= largeur intérieure de chaque colonne, donc
+  // la largeur des étagères) issues du DESSIN. C'est la source de vérité du
+  // découpage des panneaux sup/inf : sans ça, decomposerItemsSelonMode retombe
+  // sur une répartition égale (longueur / nb caissons), ce qui est faux quand
+  // les caissons n'ont pas tous la même largeur. Le mode de construction
+  // (pardessus → +2·ep) est appliqué ensuite par poser() via deltaSup/deltaInf.
+  if (colKeys.length > 1) {
+    window._colonnesOrdre = colKeys.map(function (k) { return Math.round(colonnes[k].x1 - colonnes[k].x0); });
+  }
+  function colAt(xEdge) { // colonne dont un bord ≈ xEdge
+    for (var i = 0; i < colKeys.length; i++) { var co = colonnes[colKeys[i]]; if (Math.abs(co.x0 - xEdge) < 2 || Math.abs(co.x1 - xEdge) < 2) return co; }
+    return null;
+  }
+  // Décrit le mode Ø32 d'une pièce verticale + positions étagères locales (depuis son haut)
+  function infoVert(xEdge, topY, lenY, cosLeft, cosRight) {
+    var trame = false, shelves = [];
+    [cosLeft, cosRight].forEach(function (co) {
+      if (!co) return;
+      if (co.perc) trame = true;
+      (co.shelves || []).forEach(function (yc) { var yl = yc - topY; if (yl > 1 && yl < lenY - 1) shelves.push(Math.round(yl)); });
+    });
+    shelves = shelves.filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    return { _perc32Mode: trame ? 'trame' : 'connecteur', _shelvesYLocal: shelves };
+  }
+
+  function mkP(des, lon, lar, e, nb) {
+    return { designation: des, longueur: Math.round(Math.max(lon, lar)), largeur: Math.round(Math.min(lon, lar)), epaisseur: e, nombre: nb || 1 };
+  }
+  function add(type, p, pos, extra) {
+    var it = {
+      p: p, meuble: ref.meuble, meubleIdx: ref.meubleIdx || 0, cfg: ref.cfg || _cfgMeuble(ref || {}), type: type,
+      sens: (type === 'porte' && p.nombre >= 2) ? 'paire' : 'gauche',
+      ep: ep, debLat: ref.debLat, margeBas: ref.margeBas, prof: P,
+      typePortes: ref.typePortes, typePlinthe: ref.typePlinthe,
+      _pos: pos || null, _fromModele: true
+    };
+    if (extra) for (var k in extra) it[k] = extra[k];
+    items.push(it);
+  }
+  // Caisson — cotes selon le mode (largeur panneaux, hauteur joues)
+  add('panneau', mkP('Panneau superieur', _panSupW, P, ep, 1), { x: 0, y: 0, w: _panSupW, h: ep });
+  add('panneau', mkP('Panneau inferieur', _panInfW, P, ep, 1), { x: 0, y: H - ep, w: _panInfW, h: ep });
+  add('lateral', mkP('Cote gauche', _joueH, P, ep, 1), { x: 0, y: 0, w: ep, h: _joueH }, infoVert(ep, 0, H, null, colAt(ep)));
+  add('lateral', mkP('Cote droit', _joueH, P, ep, 1), { x: L - ep, y: 0, w: ep, h: _joueH }, infoVert(L - ep, 0, H, colAt(L - ep), null));
+  add('fond', mkP('Fond du meuble', H - 2 * ep, L - 2 * ep, epFond, 1), { x: ep, y: ep, w: L - 2 * ep, h: H - 2 * ep });
+  // Montants (séparateurs verticaux) — _montantType déduit de la hauteur
+  var iM = 1, hInt = H - 2 * ep;
+  lay.dividers.forEach(function (d) {
+    if (d.sens !== 'v') return;
+    var plein = Math.abs(d.h - hInt) <= Math.max(10, ep);
+    var mh = plein ? _montH : d.h;   // montant pleine hauteur → cote selon le mode (traversant/sandwich/pardessus)
+    var iv = infoVert(d.x, d.y, d.h, colAt(d.x), colAt(d.x + ep));
+    add('montant', mkP('Montant ' + (iM++), mh, d.profondeur, ep, 1),
+      { x: d.x, y: d.y, w: ep, h: mh, profEncastre: !!d.profEncastre },
+      { _montantType: plein ? 'plein' : 'etagere', _perc32Mode: iv._perc32Mode, _shelvesYLocal: iv._shelvesYLocal });
+  });
+  // Étagères (séparateurs horizontaux)
+  var iE = 1;
+  lay.dividers.forEach(function (d) {
+    if (d.sens !== 'h') return;
+    add('etagere', mkP('Etagere ' + (iE++), d.w, d.profondeur, ep, 1),
+      { x: d.x, y: d.y, w: d.w, h: ep, yFromBottom: H - (d.y + ep), profEncastre: !!d.profEncastre });
+  });
+  // Façades (portes & tiroirs) — résolution du span multi-volumes
+  var leafMap = {}; lay.feuilles.forEach(function (lf) { leafMap[lf.path.join('.')] = lf; });
+  var iP = 1, iT = 1;
+  lay.facades.forEach(function (ff) {
+    var fac = ff.cell.facade; if (!fac) return;
+    var lf = { x: ff.x, y: ff.y, w: ff.w, h: ff.h };
+    if ((ff.span || 1) > 1 && ff.path.length) {
+      var i = ff.path[ff.path.length - 1], minY = lf.y, maxY = lf.y + lf.h;
+      for (var k = 1; k < ff.span; k++) { var pth = ff.path.slice(); pth[pth.length - 1] = i + k; var r = leafMap[pth.join('.')]; if (!r) break; minY = Math.min(minY, r.y); maxY = Math.max(maxY, r.y + r.h); }
+      lf = { x: lf.x, y: minY, w: lf.w, h: maxY - minY };
+    }
+    if (fac.type === 'tiroir') {
+      var nb = (fac.tiroirs && fac.tiroirs.length) ? fac.tiroirs.length : 1;
+      add('tiroir', mkP('Tiroir facade ' + (iT++), lf.w, lf.h, ep, nb), { x: lf.x, y: lf.y, w: lf.w, h: lf.h });
+    } else {
+      // Porte double (2 vantaux) → 2 panneaux de DEMI-largeur (cf. debit() de
+      // l'éditeur). Avant : largeur entière × 2 → chant/surface surévalués.
+      var dbl = fac.sens === 'double';
+      add('porte', mkP('Porte ' + (iP++), lf.h, dbl ? lf.w / 2 : lf.w, ep, dbl ? 2 : 1), { x: lf.x, y: lf.y, w: lf.w, h: lf.h });
+    }
+  });
+  // Pièces non représentées par le modèle (plinthe surtout) : reprises telles
+  // quelles — SAUF la plinthe si l'utilisateur a choisi « Aucune » (sinon elle
+  // réapparaissait dans le débit et les fichiers de fab malgré le réglage).
+  var _selPl = document.getElementById('typePlinthe');
+  var _sansPlinthe = _selPl && _selPl.value === 'aucune';
+  base.forEach(function (it) {
+    if (it.type !== 'plinthe') return;
+    if (_sansPlinthe) return;        // plinthe supprimée → on ne la réinjecte pas
+    items.push(it);
+  });
+  return items;
+}
+window._wmcItemsDepuisModele = _wmcItemsDepuisModele;
+
+(function () {
+  if (typeof WooderPlan2D === 'undefined') return;   // pas d'éditeur → garde colonnes.js
+  var _colonnesOrig = window.afficherSectionColonnes;
+
+  // Flèches ← → pour réordonner les colonnes (racine 'v') sans glisser-déposer.
+  // Lit le modèle dans l'éditeur, échange 2 colonnes voisines (taille + contenu),
+  // ré-applique via setModele. Robuste sur mobile.
+  function _majFlechesColonnes() {
+    var box = document.getElementById('plan2dColOrder');
+    if (!box) return;
+    var ed = window._plan2dEditeur;
+    var m = ed ? ed.getModele() : window._plan2dModele;
+    box.innerHTML = '';
+    if (!m || !m.racine || m.racine.sens !== 'v' || m.racine.enfants.length < 2) return;
+    var n = m.racine.enfants.length;
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+    var lab = document.createElement('span');
+    lab.textContent = 'Ordre des colonnes :';
+    lab.style.cssText = 'font-size:12px;color:#666;margin-right:4px';
+    row.appendChild(lab);
+    function swap(i, j) {
+      var mm = ed.getModele(), r = mm.racine;
+      var t = r.tailles[i]; r.tailles[i] = r.tailles[j]; r.tailles[j] = t;
+      var e = r.enfants[i]; r.enfants[i] = r.enfants[j]; r.enfants[j] = e;
+      ed.setModele(mm);
+      window._plan2dModele = mm;
+      _majFlechesColonnes();
+    }
+    for (var i = 0; i < n; i++) {
+      (function (i) {
+        var grp = document.createElement('span');
+        grp.style.cssText = 'display:inline-flex;align-items:center;gap:2px;border:1px solid #e3dfd3;border-radius:8px;padding:3px 4px;background:#fff';
+        function btn(txt, dis, fn) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.textContent = txt;
+          b.style.cssText = 'min-width:30px;min-height:30px;border:none;background:transparent;cursor:pointer;font-size:15px;color:' + (dis ? '#ccc' : '#4F5E3C');
+          b.disabled = dis; if (!dis) b.onclick = fn;
+          return b;
+        }
+        grp.appendChild(btn('◀', i === 0, function () { swap(i, i - 1); }));
+        var c = document.createElement('span');
+        c.textContent = 'Col ' + (i + 1);
+        c.style.cssText = 'font-size:12px;font-weight:600;color:#444;padding:0 2px';
+        grp.appendChild(c);
+        grp.appendChild(btn('▶', i === n - 1, function () { swap(i, i + 1); }));
+        row.appendChild(grp);
+      })(i);
+    }
+    box.appendChild(row);
+  }
+  window._majFlechesColonnes = _majFlechesColonnes;
+
+  window.afficherSectionColonnes = function (items) {
+    try {
+      // Priorité : modèle en cours d'édition → proposition issue de l'analyse
+      // photo (consommée une seule fois) → reconstruction depuis les pièces.
+      var modele = window._plan2dModele;
+      if (!modele && window._modelePhotoPropose) {
+        modele = window._modelePhotoPropose;
+        window._modelePhotoPropose = null;
+      }
+      if (!modele) modele = _wmcModeleDepuisItems(items);
+      window._plan2dModele = modele;
+
+      // Vue 3D éclatée si dispo (comme colonnes.js)
+      var imgDiv = document.getElementById('colonnesImage');
+      if (imgDiv) {
+        var img3D = null;
+        for (var mi = 0; mi < (window._meubles || []).length; mi++) {
+          if (window._meubles[mi].image3D) { img3D = window._meubles[mi].image3D; break; }
+        }
+        imgDiv.innerHTML = img3D
+          ? '<img src="' + img3D + '" style="width:100%;border-radius:6px;border:1px solid #ddd" alt="Vue éclatée">'
+          : '';
+      }
+
+      var host = document.getElementById('colonnesSelectors');
+      // Éditeur en GRAND et EN PREMIER (comme l'éditeur de meuble) : on ne met
+      // qu'une ligne d'ordre des colonnes au-dessus, et la note plinthe en bas.
+      host.innerHTML = '<div id="plan2dColOrder" style="margin-bottom:6px"></div>'
+        + '<div id="plan2dHost"></div>'
+        + '<div style="font-size:11px;color:#8a6d3b;margin-top:8px">'
+        + '&#9432; Hauteur = caisson seul (hors pieds/plinthe). Positionne étagères, montants, portes, puis « Valider ».</div>';
+
+      if (window._plan2dEditeur) { try { window._plan2dEditeur.detruire(); } catch (e) {} }
+      var mats = (window.CATALOG && CATALOG.materiaux) ? CATALOG.materiaux : [];
+      // Synchronise le mode de construction déjà choisi dans le modèle de l'éditeur
+      if (window._modeConstruction && window._modeConstruction.id && !modele.modeConstruction) {
+        modele.modeConstruction = window._modeConstruction.id;
+      }
+      window._plan2dEditeur = WooderPlan2D.creer(document.getElementById('plan2dHost'), {
+        modele: modele,
+        materiaux: mats,
+        onChange: function (m) {
+          window._plan2dModele = m;
+          // L'éditeur est la source de vérité du mode → on le propage au calcul
+          if (m.modeConstruction && typeof WooderModeConstruction !== 'undefined' && WooderModeConstruction.obtenirAttributs) {
+            var attrs = WooderModeConstruction.obtenirAttributs(m.modeConstruction);
+            if (attrs && (!window._modeConstruction || window._modeConstruction.id !== attrs.id)) {
+              if (window.WooderConstruction && window.WooderConstruction.appliquer) window.WooderConstruction.appliquer(attrs, true);
+              else window._modeConstruction = attrs;
+            }
+          }
+          _majFlechesColonnes();
+        }
+      });
+      _majFlechesColonnes();
+
+      var badge = document.getElementById('badgeColonnes');
+      if (badge) badge.textContent = (modele.racine.sens === 'v' ? modele.racine.enfants.length : 1) + ' col.';
+      var secC = document.getElementById('secColonnes');
+      if (secC) {
+        secC.classList.remove('hidden');
+        if (typeof ouvrirSection === 'function') ouvrirSection('secColonnes');
+        secC.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (e) {
+      console.error('[plan2d] éditeur indisponible, retour aux sélecteurs colonnes :', e);
+      var hostErr = document.getElementById('colonnesSelectors');
+      if (hostErr) {
+        var note = document.createElement('div');
+        note.style.cssText = 'background:#fff3cd;border:1px solid #ffe08a;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#7a5d00';
+        note.textContent = '⚠️ Éditeur 2D indisponible (' + (e && e.message ? e.message : e) + ') — ancien sélecteur affiché.';
+        hostErr.parentNode.insertBefore(note, hostErr);
+      }
+      if (_colonnesOrig) _colonnesOrig(items);
+    }
+  };
+
+  // Bouton « Réinitialiser » : repart du meuble importé (reconstruit le modèle)
+  document.addEventListener('DOMContentLoaded', function () {
+    var br = document.getElementById('btnResetColonnes');
+    if (br) br.onclick = function () {
+      window._plan2dModele = null;
+      window._colonnesOrdre = null;
+      if (window._itemsCache) window.afficherSectionColonnes(window._itemsCache);
+    };
+  });
+})();
+
+/* ── Override : « Valider l'ordre » → découpage + calcul ───────────
+   colonnes.js appelle lancerCalculDepuisColonnes(window._itemsCache)
+   (= items BRUTS). On lit le modèle 2D pour en déduire les largeurs de
+   colonnes (window._colonnesOrdre), puis on DÉCOUPE la liste brute
+   selon le mode avant de calculer. */
+window.lancerCalculDepuisColonnes = function (itemsRaw) {
+  lireParams();
+  // Source de vérité = modèle 2D dessiné dans l'éditeur
+  if (window._plan2dEditeur) { try { window._plan2dModele = window._plan2dEditeur.getModele(); } catch (e) {} }
+  var m = window._plan2dModele;
+  var base = window._itemsOriginal || itemsRaw || window._itemsCache;
+  if (m && m.racine && m.racine.sens === 'v') {
+    window._colonnesOrdre = m.racine.tailles.map(function (t) { return Math.round(t); });
+  }
+  // Régénère le débit + positions exactes depuis le dessin, puis applique le
+  // découpage selon le mode de construction (multi-caisson, montants doublés…).
+  var src = base;
+  if (m && m.racine) {
+    try {
+      var modelItems = _wmcItemsDepuisModele(m, base);
+      if (modelItems && modelItems.length) {
+        src = modelItems;
+        window._itemsModele = modelItems;   // débit issu du dessin (avant découpage mode)
+        console.log('[plan2d] source de vérité = modèle 2D (' + modelItems.length + ' pièces)');
+      }
+    } catch (e) {
+      console.error('[plan2d] conversion modèle→items échouée, repli sur pièces importées :', e);
+    }
+  }
+  var items = decomposerItemsSelonMode(src);   // découpe selon le mode + _colonnesOrdre
+  window._itemsCache = items;
+  window._plan2dValide = true;   // calcul validé → ne pas ré-ouvrir l'éditeur
+  classifierMontants(items);
+  _wmcFinaliserCalcul(items);
+};
+</script>
 <script>
 /* ── Récepteur pipeline photo → calcul ── */
 (function() {
+
+  /* Construit un modèle WooderPlan2D fidèle à l'analyse photo afin que
+     l'éditeur 2D (étape colonnes) PROPOSE la construction du meuble,
+     modifiable avant devis. tailles = ratios (l'éditeur les rescale). */
+  function _modele2DDepuisPhoto(photo) {
+    var ens = (photo && photo.ensemble) || {};
+    var dim = ens.dimensions_totales || {};
+    var els = (photo && photo.elements) || [];
+    var EP  = 19;
+    var cm  = (typeof cmToMm === 'function') ? cmToMm : function (v) { return Math.round((v || 0) * 10); };
+    var H = cm(dim.hauteur) || 2000;
+    var L = cm(dim.largeur) || 1000;
+    var P = cm(dim.profondeur) || 600;
+
+    function poseDe(el) {
+      var p = (el.facade || {}).pose || '';
+      return (p === 'encastree' || p === 'encastre') ? 'encastre' : 'applique';
+    }
+    function rep(n) { var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }
+    function arr(n, f) { var a = []; for (var i = 0; i < n; i++) a.push(f(i)); return a; }
+
+    function leafFor(typeEl, pose) {
+      var t = (typeEl || '').toLowerCase();
+      if (t === 'porte')  return { facade: { type: 'porte',  pose: pose, sens: 'droite' } };
+      if (t === 'tiroir') return { facade: { type: 'tiroir', pose: pose, sens: null } };
+      if (t === 'vitree') return { facade: { type: 'porte',  pose: pose, sens: 'droite', vitree: true } };
+      return {}; // 'ouvert' / inconnu → niche ouverte
+    }
+
+    // Plusieurs éléments empilés verticalement dans une sous-colonne
+    function buildElemsVert(elems, pose) {
+      return { sens: 'h', tailles: rep(elems.length),
+               enfants: elems.map(function (e) { return leafFor(e.type, pose); }) };
+    }
+
+    // Une ligne de composition → cellule (sous-colonnes, juxtaposition ou feuille)
+    function buildLine(line, pose) {
+      var sc = line.sous_colonnes;
+      if (sc && sc.length > 1) {
+        return {
+          sens: 'v',
+          tailles: sc.map(function (c) { return (c.largeur_ratio != null ? c.largeur_ratio : 1) * 1000; }),
+          enfants: sc.map(function (c) {
+            var es = c.elements || [];
+            if (es.length > 1) return buildElemsVert(es, pose);
+            return leafFor((es[0] || {}).type, pose);
+          })
+        };
+      }
+      var es = line.elements || [];
+      if (es.length > 1) {
+        // Plusieurs tiroirs dans une même ligne = pile verticale (sens 'h') ;
+        // sinon (portes, mixte) = juxtaposition horizontale (sens 'v').
+        var tousTiroirs = es.every(function (e) { return (e.type || '').toLowerCase() === 'tiroir'; });
+        return { sens: tousTiroirs ? 'h' : 'v', tailles: rep(es.length),
+                 enfants: es.map(function (e) { return leafFor(e.type, pose); }) };
+      }
+      if (es.length === 1) return leafFor(es[0].type, pose);
+      return {};
+    }
+
+    // Un élément (colonne / caisson) → cellule complète
+    function buildElement(el) {
+      var pose  = poseDe(el);
+      var fac   = el.facade || {};
+      var compo = fac.composition;
+      if (compo && compo.length) {
+        if (compo.length === 1) return buildLine(compo[0], pose);
+        return {
+          sens: 'h',
+          tailles: compo.map(function (l) { return (l.hauteur_ratio != null ? l.hauteur_ratio : 1) * 1000; }),
+          enfants: compo.map(function (l) { return buildLine(l, pose); })
+        };
+      }
+      // Pas de composition détaillée → repli sur les compteurs
+      var se  = el.sous_elements || {};
+      var PB  = se.PB  || fac.nb_portes  || 0;
+      var TIR = se.TIR || fac.nb_tiroirs || 0;
+      var ETG = se.ETG || fac.nb_etg     || 0;
+      if (TIR > 0 && PB === 0) {
+        return { sens: 'h', tailles: rep(TIR), enfants: arr(TIR, function () { return leafFor('tiroir', pose); }) };
+      }
+      if (PB >= 2) {
+        return { sens: 'v', tailles: rep(PB), enfants: arr(PB, function () { return leafFor('porte', pose); }) };
+      }
+      if (PB === 1) return leafFor('porte', pose);
+      if (ETG > 0) {
+        var n = ETG + 1;
+        return { sens: 'h', tailles: rep(n), enfants: arr(n, function () { return {}; }) };
+      }
+      return {};
+    }
+
+    // Racine TOUJOURS sens 'v' : chaque élément = une colonne de premier niveau
+    var racine = {
+      sens: 'v',
+      tailles: els.length ? els.map(function (el) { return cm(el.largeur) || 0; }) : [0],
+      enfants: els.length ? els.map(buildElement) : [{}]
+    };
+
+    var modele = { H: H, L: L, P: P, ep: EP, racine: racine };
+    if (photo.mode_construction && photo.mode_construction.id) modele.modeConstruction = photo.mode_construction.id;
+    return modele;
+  }
+
+  // Mappe une finition détectée (texte libre : "noir", "chêne"…) sur les sélecteurs
+  // de matériau du devis (panneaux 19mm + façades), par mot-clé sur le libellé.
+  function appliquerFinition(texte) {
+    if (!texte) return;
+    function norm(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+    var mots = norm(texte).split(/[^a-z]+/).filter(function (w) { return w.length >= 3; });
+    if (!mots.length) return;
+    ['selMat19', 'selMatFacades'].forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (!sel || !sel.options.length) return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (mots.some(function (m) { return norm(sel.options[i].text).indexOf(m) >= 0; })) {
+          sel.value = sel.options[i].value;
+          if (typeof majPrixMat === 'function') { try { majPrixMat(id, id === 'selMat19' ? 'prixPan19' : 'prixFacades'); } catch (e) {} }
+          break;
+        }
+      }
+    });
+  }
+
   function recevoirPhoto() {
     var params = new URLSearchParams(window.location.search);
     var b64 = params.get('photo');
@@ -2423,6 +4054,25 @@ function telechargerZipDXFSeul() {
     } catch(e) {
       console.error('[photo-receiver] Décodage échoué:', e);
       return;
+    }
+
+    // Mode de construction transmis par analyser-meuble.html (étape 2)
+    if (photoData.mode_construction && typeof window.WooderConstruction !== 'undefined') {
+      window.WooderConstruction.appliquer(photoData.mode_construction);
+    }
+
+    // FINITION détectée (matériau apparent) → pré-sélectionne le matériau du devis.
+    if (photoData.ensemble && photoData.ensemble.materiau_apparent) {
+      appliquerFinition(photoData.ensemble.materiau_apparent);
+    }
+
+    // Proposition de construction pour l'éditeur 2D (étape colonnes) :
+    // consommée une seule fois par afficherSectionColonnes, modifiable avant devis.
+    try {
+      window._modelePhotoPropose = _modele2DDepuisPhoto(photoData);
+    } catch (e) {
+      console.warn('[photo-receiver] modèle 2D non construit :', e);
+      window._modelePhotoPropose = null;
     }
 
     if (typeof mapperJSON !== 'function') {
@@ -2462,6 +4112,488 @@ function telechargerZipDXFSeul() {
   } else {
     recevoirPhoto();
   }
+})();
+
+/* ── Récepteur outil vocal → calcul ──────────────────────────────
+   L'outil de création guidée/vocale envoie son modèle WooderPlan2D
+   directement en base64 dans l'URL : calcul.html?vocal=<b64>.
+   On en déduit un meuble (débit) + on propose ce modèle à l'éditeur
+   2D (étape colonnes), exactement comme le pipeline photo.            */
+(function () {
+  function recevoirVocal() {
+    var params = new URLSearchParams(window.location.search);
+    var b64Liste = params.get('meubles');                       // LISTE (mode Projet : toute la pièce)
+    var b64Un    = params.get('meuble') || params.get('vocal'); // UN seul (éditeur Meuble seul / vocal)
+    if (!b64Liste && !b64Un) return;
+    function msg(t, k) { if (typeof showMsg === 'function') { try { showMsg(t, k); } catch (e) {} } }
+    if (typeof WooderPlan2D === 'undefined' || !WooderPlan2D.debit) {
+      console.error('[receiver] WooderPlan2D indisponible');
+      msg('Éditeur 2D non chargé — rechargez la page (calcul.html à jour ?).', 'err'); return;
+    }
+    function decode(b64) { return JSON.parse(decodeURIComponent(escape(atob(b64.replace(/-/g, '+').replace(/_/g, '/'))))); }
+    var liste;
+    try {
+      if (b64Liste) { liste = decode(b64Liste); if (!Array.isArray(liste)) liste = [liste]; }
+      else { liste = [decode(b64Un)]; }
+    } catch (e) { console.error('[receiver] décodage échoué :', e); msg('Lien meuble illisible (trop long ?). Réessayez.', 'err'); return; }
+
+    if (!window._meubles) window._meubles = [];
+    window._meubles.length = 0;
+    var nbOk = 0;
+    liste.forEach(function (M, i) {
+      if (!M) return;
+      // Mode « sur pieds / socle » (plinthe indépendante) : le caisson est
+      // COMPLET (panneau inf tout en bas) mais à hauteur réduite, car la
+      // hauteur saisie est TOTALE (socle compris) → caisson = H − hauteurPlinthe.
+      // On ajoute ensuite le socle comme pièce séparée. Désignation SANS le mot
+      // « plinthe » pour ne PAS déclencher la logique plinthe encastrée (qui
+      // surélèverait le panneau inf) : ici le caisson est déjà raccourci.
+      var surPieds = !!(M.pieds && M.pieds.active);
+      var hP = surPieds ? (parseFloat(M.pieds.hauteurPlinthe) || 100) : 0;
+      var faitSocle = surPieds && hP > 0 && M.H > hP + 100;
+      var Mdeb = M;
+      if (faitSocle) { Mdeb = JSON.parse(JSON.stringify(M)); Mdeb.H = M.H - hP; }
+      var pieces;
+      try { pieces = WooderPlan2D.debit(Mdeb); }
+      catch (e) { console.warn('[receiver] débit échoué (meuble ' + i + ') :', e); return; }
+      if (!pieces || !pieces.length) return;
+      if (faitSocle) {
+        pieces.push({ designation: 'Socle independant', longueur: M.L, largeur: hP, epaisseur: M.ep || 19, nombre: 1 });
+      }
+      // Type de caisson (mode de construction) : si les pans sup/inf sont
+      // INTÉRIEURS (entre joues), leur longueur = L - 2·ep. Le débit de base
+      // suppose « par-dessus » (pleine largeur) → on corrige ici pour CHAQUE
+      // meuble de la liste (le chemin model-aware ne couvre que le 1er).
+      try {
+        var attrsMode = (M.modeConstruction && typeof WooderModeConstruction !== 'undefined' &&
+                         WooderModeConstruction.obtenirAttributs)
+          ? WooderModeConstruction.obtenirAttributs(M.modeConstruction) : null;
+        if (attrsMode) {
+          var LintM = Math.round((M.L || 0) - 2 * (M.ep || 19));
+          pieces.forEach(function (p) {
+            if (attrsMode.pan_sup === 'interieur' && p.designation === 'Panneau superieur') p.longueur = LintM;
+            if (attrsMode.pan_inf === 'interieur' && p.designation === 'Panneau inferieur') p.longueur = LintM;
+          });
+        }
+      } catch (eM) { console.warn('[receiver] ajustement mode :', eM); }
+      window._meubles.push({
+        nom: M._nom || ('Meuble' + (liste.length > 1 ? ' ' + (i + 1) : '')), pieces: pieces,
+        epaisseur: M.ep || 19, profondeur: M.P || 600,
+        debutPerc: 96, margeBas: 100,
+        typePortes: 'applique', typePlinthe: 'aucune'
+      });
+      nbOk++;
+    });
+    if (!nbOk) { console.warn('[receiver] aucun meuble chargé'); msg('Aucune pièce générée depuis le meuble.', 'err'); return; }
+
+    // Confirmation VISIBLE dès la 1re section « Feuilles de débit » : on rend
+    // la/les carte(s) meuble + les pièces détectées + le badge, EXACTEMENT
+    // comme un import PDF. Sans ça la page d'accueil restait vide et l'artisan
+    // ne voyait pas que son meuble édité était bien chargé.
+    if (typeof afficherListeMeubles === 'function') { try { afficherListeMeubles(); } catch (e) {} }
+    if (typeof afficherToutesPieces === 'function') { try { afficherToutesPieces(); } catch (e) {} }
+    if (typeof _miseAJourCompteur === 'function')   { try { _miseAJourCompteur(); }   catch (e) {} }
+
+    // Modèle proposé à l'éditeur 2D (1er meuble) + mode de construction
+    var M0 = liste[0];
+    window._modelePhotoPropose = M0;
+    if (M0 && M0.modeConstruction && typeof WooderModeConstruction !== 'undefined' &&
+        WooderModeConstruction.obtenirAttributs && window.WooderConstruction && WooderConstruction.appliquer) {
+      var aBase = WooderModeConstruction.obtenirAttributs(M0.modeConstruction);
+      if (aBase) {
+        var a = Object.assign({}, aBase);          // clone → ne pas polluer le catalogue
+        if (M0.pieds) a.pieds = M0.pieds;          // socle/pieds + hauteur plinthe choisis dans l'éditeur
+        try { WooderConstruction.appliquer(a); } catch (e) {}
+      }
+    }
+    // Le meuble vient de l'éditeur 2D : il est DÉJÀ dessiné. On saute donc
+    // l'étape d'édition « colonnes » et on génère DIRECTEMENT le débit à
+    // partir du modèle (chemin model-aware → perçages 32 / étagères fixes /
+    // mode de construction respectés), au lieu de s'arrêter sur l'éditeur.
+    window._plan2dModele = M0;
+    if (typeof lancerCalcul === 'function') {
+      try { lancerCalcul(); } catch (e) { console.error('[receiver] lancerCalcul :', e); }
+    }
+    if (M0 && M0.racine && typeof window.lancerCalculDepuisColonnes === 'function') {
+      var _ed = window._plan2dEditeur;
+      window._plan2dEditeur = null;   // forcer M0 comme source pour CE calcul
+      window._plan2dModele  = M0;     // (lancerCalcul vient de le remettre à null)
+      try {
+        window.lancerCalculDepuisColonnes(window._itemsCache || window._itemsOriginal);
+        msg(nbOk + ' meuble(s) — feuille de débit générée ✓', 'ok');
+      } catch (e) {
+        console.error('[receiver] calcul direct échoué :', e);
+        msg('Meuble chargé — clique « ✓ Valider l\'ordre » pour le débit.', 'err');
+      } finally {
+        window._plan2dEditeur = _ed;   // restaurer l'éditeur (ré-édition manuelle possible)
+      }
+    } else {
+      msg(nbOk + ' meuble(s) chargé(s) — clique « ✓ Valider l\'ordre » pour le débit.', 'ok');
+    }
+    // Atterrir sur la 1re section « Feuilles de débit » : l'artisan voit
+    // immédiatement sa/ses carte(s) meuble (confirmation du chargement).
+    var secImp = document.getElementById('secImport');
+    if (secImp) setTimeout(function () { secImp.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350);
+    console.log('[receiver] ' + nbOk + ' meuble(s) charge(s)');
+  }
+
+  window.addEventListener('load', recevoirVocal);
+})();
+
+/* ── Module Construction : picker + recap + persistance ── */
+(function() {
+  var STORAGE_KEY = 'wooder.calcul.modeConstruction';
+  var pickerInstance = null;
+
+  function attrsTexte(a) {
+    var parts = [];
+    if (a.mode) parts.push('Mode ' + a.mode);
+
+    // Pan sup / pan inf
+    if (a.pan_sup) {
+      var ps = a.pan_sup === 'pardessus' ? 'pan sup par-dessus' : 'pan sup intérieur';
+      if (a.mode === 'A' && a.pan_sup === 'pardessus') ps += a.pan_sup_continu ? ' (continu)' : ' (2 morc.)';
+      parts.push(ps);
+    }
+    if (a.pan_inf) {
+      var pi = a.pan_inf === 'pardessous' ? 'pan inf par-dessous' : 'pan inf intérieur';
+      if (a.mode === 'A' && a.pan_inf === 'pardessous') pi += a.pan_inf_continu ? ' (continu)' : ' (2 morc.)';
+      parts.push(pi);
+    }
+
+    // MI
+    if (a.montants_centraux && a.nb_montants_centraux > 0) {
+      parts.push(a.montants_centraux === 'traversants' ? 'MI traversant' : 'MI sandwich');
+    }
+
+    // Plinthe
+    if (a.plinthe_encastree) parts.push('plinthe encastrée entre joues');
+
+    // Pieds
+    if (a.pieds && a.pieds.active) {
+      parts.push('sur pieds + plinthe ind. ' + (a.pieds.hauteurPlinthe || 100) + ' mm');
+    }
+
+    return parts.join(' · ');
+  }
+
+  function trouverEntreeCatalogue(modeId) {
+    if (typeof WooderModeConstruction === 'undefined') return null;
+    var liste = WooderModeConstruction.obtenirListe();
+    for (var i = 0; i < liste.length; i++) {
+      if (liste[i].id === modeId) return liste[i];
+    }
+    return null;
+  }
+
+  function afficherRecap(modeData) {
+    var recapEl = document.getElementById('construction-recap');
+    var pickerWrap = document.getElementById('construction-picker-wrapper');
+    var badge = document.getElementById('badgeConstruction');
+    if (!recapEl || !pickerWrap) return;
+
+    var entree = trouverEntreeCatalogue(modeData.id);
+    var label = entree ? entree.label : modeData.id;
+    var svg   = entree ? entree.svg : '';
+
+    document.getElementById('construction-recap-label').textContent = label;
+    document.getElementById('construction-recap-attrs').textContent = attrsTexte(modeData);
+    document.getElementById('construction-recap-svg').innerHTML = svg;
+    recapEl.style.display = 'block';
+    pickerWrap.style.display = 'none';
+    if (badge) {
+      badge.textContent = label;
+      badge.style.background = 'var(--accent)';
+      badge.style.color = '#fff';
+    }
+  }
+
+  function afficherPicker() {
+    var recapEl = document.getElementById('construction-recap');
+    var pickerWrap = document.getElementById('construction-picker-wrapper');
+    var badge = document.getElementById('badgeConstruction');
+    if (recapEl) recapEl.style.display = 'none';
+    if (pickerWrap) pickerWrap.style.display = 'block';
+    if (badge) {
+      badge.textContent = 'À choisir';
+      badge.style.background = '';
+      badge.style.color = '';
+    }
+
+    if (pickerInstance || typeof WooderModeConstruction === 'undefined') return;
+
+    var container = document.getElementById('construction-picker-container');
+    if (!container) return;
+
+    // État local : permet à onPiedsChange de fusionner avec le mode courant
+    var courant = { id: null, attrs: null, pieds: { active: false, hauteurPlinthe: 100 } };
+
+    function emettre() {
+      if (!courant.id || !courant.attrs) return;
+      var data = Object.assign({ id: courant.id }, courant.attrs, { pieds: courant.pieds });
+      appliquer(data, true);
+    }
+
+    // Restauration depuis localStorage
+    var sauv = lireStorage();
+    var initPieds = (sauv && sauv.pieds) ? sauv.pieds : { active: false, hauteurPlinthe: 100 };
+    courant.pieds = { active: !!initPieds.active, hauteurPlinthe: initPieds.hauteurPlinthe || 100 };
+
+    pickerInstance = WooderModeConstruction.creerPicker(container, {
+      selected: sauv && sauv.id ? sauv.id : null,
+      forcerAssistant: true,   // toujours passer par les 2 questions (caissons ? + pose au sol) avant la grille
+      piedsActive: courant.pieds.active,
+      hauteurPlinthe: courant.pieds.hauteurPlinthe,
+      onSelect: function(modeId, attrs) {
+        courant.id = modeId;
+        courant.attrs = attrs;
+        emettre();
+      },
+      onPiedsChange: function(etat) {
+        courant.pieds = { active: !!etat.active, hauteurPlinthe: etat.hauteurPlinthe || 100 };
+        emettre();
+      }
+    });
+
+    // Si on a un mode sauvegardé, on remplit courant.attrs pour pouvoir émettre dès que pieds change
+    if (sauv && sauv.id) {
+      var entree = trouverEntreeCatalogue(sauv.id);
+      if (entree) {
+        courant.id = sauv.id;
+        courant.attrs = entree;
+      }
+    }
+  }
+
+  function appliquer(modeData, persistanceUtilisateur) {
+    window._modeConstruction = modeData;
+    // Nouveau mode → le choix « agrandir / réduire » doit être reposé.
+    window._wmcDimChoix = undefined;
+    // Propage le mode à l'éditeur 2D déjà affiché et le redessine (sinon il
+    // gardait l'ancien rendu : panneaux entiers / un seul caisson).
+    if (window._plan2dEditeur && modeData && modeData.id) {
+      try {
+        var _mm = window._plan2dEditeur.getModele();
+        if (_mm && _mm.modeConstruction !== modeData.id) {
+          _mm.modeConstruction = modeData.id;
+          window._plan2dEditeur.setModele(_mm);
+        }
+      } catch (e) {}
+    }
+    if (persistanceUtilisateur) {
+      // Sélection manuelle utilisateur → on persiste
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(modeData)); } catch(e) {}
+      // Met aussi à jour le badge mais on garde le picker visible
+      var badge = document.getElementById('badgeConstruction');
+      var entree = trouverEntreeCatalogue(modeData.id);
+      if (badge && entree) {
+        badge.textContent = entree.label;
+        badge.style.background = 'var(--accent)';
+        badge.style.color = '#fff';
+      }
+      // Le mode de construction influe sur les connecteurs/usinage → recalcul
+      // si un calcul a déjà été lancé (sinon no-op).
+      if (typeof window.recalculerSiCalcul === 'function') window.recalculerSiCalcul();
+    } else {
+      // Arrivée depuis analyser-meuble.html → recap lecture seule
+      afficherRecap(modeData);
+    }
+  }
+
+  function lireStorage() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+
+  function init() {
+    // Bouton "Modifier" du recap → repasse en mode picker
+    var btnModif = document.getElementById('btn-construction-modifier');
+    if (btnModif) {
+      btnModif.addEventListener('click', function() {
+        if (confirm('Pour changer le mode de construction, il est recommandé de relancer l\'analyse photo. Continuer quand même avec un picker local ?')) {
+          window._modeConstruction = null;
+          try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+          afficherPicker();
+        }
+      });
+    }
+
+    // Au chargement : si rien n'a été appliqué via recevoirPhoto, on regarde le localStorage
+    setTimeout(function() {
+      if (!window._modeConstruction) {
+        var sauv = lireStorage();
+        if (sauv && sauv.id) {
+          window._modeConstruction = sauv;
+        }
+        afficherPicker(); // Toujours afficher le picker s'il n'y a pas eu d'arrivée payload
+      }
+    }, 0);
+  }
+
+  // Expose
+  window.WooderConstruction = {
+    appliquer: appliquer,
+    obtenir: function() { return window._modeConstruction; }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+<script>
+/* ══ Wizard 6 étapes — affichage d'une étape à la fois ══════════════════
+   Non destructif : ne touche pas la logique de calcul. Contrôle uniquement
+   la visibilité des sections via display inline (prioritaire sur .hidden). */
+(function () {
+  /* On pilote les CONTENEURS visibles : sections simples OU cartes (result-card)
+     qui enrobent les sections de résultats. Cacher la carte cache son header. */
+  // `import` : étape qui n'a de sens que si l'on part d'une feuille de débit
+  // (PDF). Quand le meuble arrive de l'éditeur 2D il est déjà entièrement
+  // défini — son mode de construction, ses colonnes et ses étagères ont été
+  // dessinés — et ces étapes ne font que redemander ce qui est déjà décidé.
+  var STEPS = [
+    { t: 'Import',        ids: ['secImport', 'secPieces'],      import: true },
+    { t: 'Construction',  ids: ['secConstruction'],             import: true },
+    { t: 'Projet & fab.', ids: ['secChoix', 'secParamsFab'] },
+    { t: 'Ordre & étag.', ids: ['secColonnes'],                 import: true },
+    { t: 'Prix & devis',  ids: ['cardPrix'] },
+    { t: 'Fabrication',   ids: ['cardChant', 'cardPlan2D', 'cardFichiers'] }
+  ];
+  // L'éditeur 2D appelle calcul.html?meuble=… ou ?meubles=… ; l'import PDF
+  // arrive sans paramètre. C'est le seul signal fiable, et il est posé avant
+  // que quoi que ce soit ne se charge.
+  var venuEditeur = /[?&]meubles?=/.test(location.search);
+  if (venuEditeur) STEPS = STEPS.filter(function (s) { return !s.import; });
+  var ALL = [];
+  STEPS.forEach(function (s) { s.ids.forEach(function (id) { if (ALL.indexOf(id) < 0) ALL.push(id); }); });
+  // Sections des étapes retirées : showStep ne les pilote plus, et le code de
+  // calcul peut encore les rouvrir (ouvrirSection). On les remasque donc à
+  // chaque changement d'étape, pas une seule fois au chargement.
+  var MASQUES = !venuEditeur ? [] :
+    ['secImport', 'secPieces', 'secConstruction', 'secColonnes']
+      .filter(function (id) { return ALL.indexOf(id) < 0; });
+  var cur = 0;
+  function el(id) { return document.getElementById(id); }
+
+  function showStep(n) {
+    cur = Math.max(0, Math.min(STEPS.length - 1, n));
+    ALL.forEach(function (id) { var e = el(id); if (e) e.style.display = 'none'; });
+    MASQUES.forEach(function (id) { var e = el(id); if (e) { e.style.display = 'none'; e.classList.add('hidden'); } });
+    var _ids = STEPS[cur].ids;
+    _ids.forEach(function (id) {
+      var e = el(id);
+      if (e) {
+        e.classList.remove('hidden');
+        e.style.display = '';
+        // N'auto-ouvrir une carte que si l'étape ne contient QU'UNE carte (ex.
+        // Prix). Les étapes multi-cartes (Fabrication : Chant, Optimisation,
+        // Fichiers) restent REPLIÉES → seuls les titres ; l'artisan déroule.
+        if (e.classList.contains('result-card') && _ids.length === 1) e.classList.add('open');
+      }
+    });
+    var bar = el('wizBar');
+    if (bar) Array.prototype.forEach.call(bar.children, function (c, i) {
+      c.classList.toggle('active', i === cur);
+      c.classList.toggle('done', i < cur);
+    });
+    var prev = el('wizPrev'), next = el('wizNext');
+    if (prev) prev.style.visibility = (cur === 0) ? 'hidden' : 'visible';
+    if (next) next.style.visibility = (cur === STEPS.length - 1) ? 'hidden' : 'visible';
+    // Barre fixe "Récupérer les fichiers" : seulement à la dernière étape
+    var sb = el('stickyBar');
+    if (sb) sb.classList.toggle('visible', cur === STEPS.length - 1 && !!window._wizStickyWanted);
+    if (window._wizRefreshMeubleBar) { try { window._wizRefreshMeubleBar(); } catch (e) {} }
+    window.scrollTo(0, 0);
+  }
+  window.wizGoto = showStep;
+
+  function init() {
+    var bar = el('wizBar');
+    if (!bar) return;
+    // Hook : quand le code de calcul veut montrer la barre fixe, on retient
+    // l'intention mais on ne l'affiche qu'à la dernière étape du wizard.
+    window.afficherStickyBar = function (label) {
+      window._wizStickyWanted = true;
+      var sbEl = el('stickyBar');
+      if (sbEl && label) { var lbl = el('stickyLabel'); if (lbl) lbl.textContent = label; }
+      showStep(cur);
+    };
+    bar.innerHTML = '';
+    STEPS.forEach(function (s, i) {
+      var d = document.createElement('div');
+      d.className = 'wiz-step';
+      d.innerHTML = '<div class="wiz-num">' + (i + 1) + '</div><div>' + s.t + '</div>';
+      d.addEventListener('click', function () { showStep(i); });
+      bar.appendChild(d);
+    });
+    var prev = el('wizPrev'), next = el('wizNext');
+    if (prev) prev.addEventListener('click', function () { showStep(cur - 1); });
+    if (next) next.addEventListener('click', function () { showStep(cur + 1); });
+    showStep(0);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<script>
+/* ── Config PAR MEUBLE dans « Choix du projet » ───────────────────────
+   Chaque meuble a SON matériau + SES connecteurs. La barre « Meuble X/N »
+   (Préc./Suivant) recopie la config du meuble courant dans les selects et
+   sauvegarde tout changement sur window._meubles[cur]. lancerCalcul lit
+   ensuite cette config par meuble (via _cfgMeuble). */
+(function () {
+  var cur = 0;
+  function g(id) { return document.getElementById(id); }
+  function val(id) { var e = g(id); return e ? e.value : ''; }
+  function txt(id) { var e = g(id); return (e && e.selectedIndex >= 0) ? e.options[e.selectedIndex].text : ''; }
+  function set(id, v) { var e = g(id); if (e && v != null && v !== '') e.value = v; }
+
+  function sauverCourant() {
+    var ms = window._meubles || [], m = ms[cur]; if (!m) return;
+    m.matCaisson = val('selMat19'); m.matFacades = val('selMatFacades'); m.matFond = val('selMatFond');
+    m.modeMat = val('selModeMat');
+    m.matCaissonNom = txt('selMat19'); m.matFacadesNom = txt('selMatFacades'); m.matFondNom = txt('selMatFond');
+    m.connCaisson = val('paramTypeConnecteur'); m.connEtagere = val('paramConnEtagere'); m.connMontant = val('paramConnMontant');
+  }
+  function charger(idx) {
+    var ms = window._meubles || [], m = ms[idx]; if (!m) return;
+    set('selMat19', m.matCaisson); set('selMatFacades', m.matFacades); set('selMatFond', m.matFond);
+    set('selModeMat', m.modeMat);
+    set('paramTypeConnecteur', m.connCaisson); set('paramConnEtagere', m.connEtagere); set('paramConnMontant', m.connMontant);
+    if (typeof _resyncPrixMateriauxActifs === 'function') { try { _resyncPrixMateriauxActifs(); } catch (e) {} }
+    if (typeof toggleModeMat === 'function') { try { toggleModeMat(); } catch (e) {} }
+  }
+  function majBarre() {
+    var ms = window._meubles || [], bar = g('wizMeubleBar'); if (!bar) return;
+    if (ms.length > 1) { bar.style.display = 'flex'; } else { bar.style.display = 'none'; cur = 0; return; }
+    if (cur >= ms.length) cur = 0;
+    var lbl = g('wizMeubleLbl'); if (lbl) lbl.textContent = 'Meuble ' + (cur + 1) + ' / ' + ms.length + ' : ' + ((ms[cur] && ms[cur].nom) || '');
+  }
+  function aller(idx) {
+    var ms = window._meubles || []; if (!ms.length) return;
+    sauverCourant();
+    cur = Math.max(0, Math.min(ms.length - 1, idx));
+    charger(cur); majBarre();
+  }
+  window._wizRefreshMeubleBar = majBarre;
+
+  function init() {
+    var p = g('wizMeublePrec'), s = g('wizMeubleSuiv');
+    if (p) p.addEventListener('click', function () { aller(cur - 1); });
+    if (s) s.addEventListener('click', function () { aller(cur + 1); });
+    ['selMat19', 'selMatFacades', 'selMatFond', 'selModeMat', 'paramTypeConnecteur', 'paramConnEtagere', 'paramConnMontant'].forEach(function (id) {
+      var e = g(id); if (e) e.addEventListener('change', sauverCourant);
+    });
+    majBarre();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 </script>
 </body>
