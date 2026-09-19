@@ -103,15 +103,45 @@ var GCODE_PARAMS = {
   martyr:        1,     // dépassement Z pour découpe traversante (mm)
   stepover:      0.5,   // fraction du Ø outil pour raster pocket (0.4-0.6)
   ramp_len_mm:   20,    // longueur rampe plongée contour (mm)
-  decimals:      3      // précision décimale G-code
+  decimals:      3,     // précision décimale G-code
+
+  // ── Pontets (tabs) ───────────────────────────────────────────────
+  // Une découpe traversante libère la pièce AVANT la fin du tour : la
+  // fraise la projette, on casse la pièce et souvent l'outil. On laisse
+  // donc quelques ponts de matière, cassés au ciseau après coup.
+  pontets_nb:    4,     // nombre de pontets sur le pourtour (0 = aucun)
+  pontets_long:  15,    // longueur d'un pontet (mm)
+  pontets_haut:  3,     // épaisseur de matière laissée sous l'outil (mm)
+
+  // ── Sens de coupe ────────────────────────────────────────────────
+  // 'avalant' (climb) : la dent attaque à copeau épais et sort à zéro —
+  // c'est ce qui donne un chant net en panneau. Sur un contour EXTÉRIEUR
+  // cela revient à tourner dans le sens horaire (outil à droite du tracé).
+  // 'opposition' si la machine a du jeu dans les vis : elle tire moins.
+  sens_coupe:    'avalant',
+
+  // ── Dialecte ─────────────────────────────────────────────────────
+  // 'grbl'     : ni M6 ni cycles G8x — changement d'outil par pause M0.
+  // 'iso'      : Mach3 / LinuxCNC, qui acceptent M6.
+  dialecte:      'grbl'
 };
 
 // ═════════════════════════════════════════════════════════════════
 // UTILITAIRES
 // ═════════════════════════════════════════════════════════════════
 
+// Coordonnées invalides rencontrées pendant la génération du job courant.
+// Renvoyer « 0 » sans rien dire est le pire des défauts : la machine ne
+// refuse rien, elle va au point 0,0 et plonge dans le coin de la pièce.
+// On formate quand même (pour ne pas produire un fichier illisible) mais
+// on garde trace, et postprocGrbl met un avertissement bloquant en tête.
+var _gcFautes = [];
+
 function _gcFmt(v) {
-  if (v == null || isNaN(v)) return '0';
+  if (v == null || isNaN(v)) {
+    _gcFautes.push(String(v));
+    return '0';
+  }
   return Number(v).toFixed(GCODE_PARAMS.decimals);
 }
 
@@ -481,6 +511,8 @@ function _opContour(LX, LY, epaisseur) {
     subtype:  'peripherique',
     path:     [[0,0], [LX,0], [LX,LY], [0,LY], [0,0]],
     depth:    epaisseur + GCODE_PARAMS.martyr,
+    epaisseur: epaisseur,   // sert à savoir si la coupe traverse (→ pontets)
+    through:  true,
     side:     'outside',  // compensation outil à l'extérieur du tracé
     closed:   true,
     tool_ref: toolRef
@@ -495,6 +527,7 @@ function postprocGrbl(job) {
   var P = GCODE_PARAMS;
   var out = [];
   var L = function(s) { out.push(s); };
+  _gcFautes = [];                     // remis à zéro pour CETTE pièce
 
   // ── En-tête ──────────────────────────────────────────────────
   L('(===== THE WOODER — G-code GRBL =====)');
@@ -529,8 +562,12 @@ function postprocGrbl(job) {
     L('(--- Outil T' + tool.n + ' : ' + tool.name + ' Ø' + tool.diameter + ' ---)');
     L('M5                     (arrêt broche)');
     L('G0 Z' + _gcFmt(P.clearance_z));
-    L('M6 T' + tool.n + '              (changement outil : ' + tool.name + ')');
-    L('M0                     (pause — attente confirmation opérateur)');
+    // GRBL ne connaît pas M6 : il répond error:20 et STOPPE le programme.
+    // Le changement se fait donc à la main, sur la pause M0. On garde le
+    // numéro d'outil en commentaire pour que l'opérateur sache quoi monter.
+    if (P.dialecte === 'iso') L('M6 T' + tool.n + '              (changement outil)');
+    else                      L('(>>> MONTER L\'OUTIL T' + tool.n + ' : ' + tool.name + ' <<<)');
+    L('M0                     (pause — monter l\'outil, puis Cycle Start)');
     L('S' + tool.spindle + ' M3            (broche ON ' + tool.spindle + ' tr/min)');
     L('G4 P2                  (attente 2s montée broche)');
     L('');
@@ -547,6 +584,21 @@ function postprocGrbl(job) {
   L('G0 Z' + _gcFmt(P.clearance_z));
   L('G0 X0 Y0');
   L('M30                    (fin)');
+
+  // Une coordonnée invalide a été remplacée par 0 : l'opérateur doit le
+  // savoir AVANT de lancer. On met l'avertissement en tête, suivi d'une
+  // pause : la machine s'arrête avant le moindre mouvement.
+  if (_gcFautes.length) {
+    var alerte = [
+      '(!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!)',
+      '(!! ' + _gcFautes.length + ' COORDONNEE(S) INVALIDE(S) REMPLACEE(S) PAR 0 !!)',
+      '(!! NE PAS LANCER — verifier le debit et regenerer.      !!)',
+      '(!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!)',
+      'M0                     (arret : fichier suspect)'
+    ];
+    out = alerte.concat(out);
+    if (job.warnings) job.warnings.push(_gcFautes.length + ' coordonnée(s) invalide(s)');
+  }
 
   return out.join('\r\n') + '\r\n';
 }
@@ -728,7 +780,20 @@ function _renderContour(L, op, tool) {
   var path = op.path;
   var offsetPath = _offsetRectPath(path, op.side === 'outside' ? r : -r);
 
-  L('(  contour ' + (op.subtype || '') + ' ' + (op.side) + ' compensation Ø' + tool.diameter + ')');
+  // Sens de coupe. Le tracé arrive en sens trigonométrique (anti-horaire).
+  // Sur un contour EXTÉRIEUR, l'outil est à droite du tracé : anti-horaire
+  // = travail en opposition, horaire = travail en avalant. On inverse donc
+  // le parcours pour l'avalant. (Contour intérieur : c'est l'inverse.)
+  var horaire = (op.side === 'outside') === (P.sens_coupe === 'avalant');
+  if (horaire) offsetPath = offsetPath.slice().reverse();
+
+  // Pontets : seulement sur une découpe qui traverse. Une feuillure ou une
+  // rainure de contour ne libère pas la pièce, elle n'en a pas besoin.
+  var traversant = (op.through !== false) && (op.depth >= (op.epaisseur || 0));
+  var pontets = traversant ? _placerPontets(offsetPath) : [];
+
+  L('(  contour ' + (op.subtype || '') + ' ' + op.side + ' compensation Ø' + tool.diameter +
+    ' — ' + (horaire ? 'horaire' : 'anti-horaire') + ', ' + P.sens_coupe + ')');
 
   var sd = tool.stepdown || op.depth;
   var nPasses = Math.ceil(op.depth / sd);
@@ -740,26 +805,114 @@ function _renderContour(L, op, tool) {
 
   for (var pass = 1; pass <= nPasses; pass++) {
     var z = -Math.min(sd * pass, op.depth);
+    var derniere = (pass === nPasses);
     L('(  passe Z ' + pass + '/' + nPasses + ' @ ' + _gcFmt(z) + ')');
 
     // Plongée en rampe sur le premier segment
     if (pass === 1 && offsetPath.length > 1) {
       var dx = offsetPath[1][0] - offsetPath[0][0];
       var dy = offsetPath[1][1] - offsetPath[0][1];
-      var segLen = Math.sqrt(dx*dx + dy*dy);
+      var segLen = Math.sqrt(dx * dx + dy * dy);
       var rampLen = Math.min(P.ramp_len_mm, segLen);
       var fx = dx / segLen, fy = dy / segLen;
-      L('G1 X' + _gcFmt(p0[0] + fx * rampLen) + ' Y' + _gcFmt(p0[1] + fy * rampLen) + ' Z' + _gcFmt(z) + ' F' + tool.plunge);
+      L('G1 X' + _gcFmt(p0[0] + fx * rampLen) + ' Y' + _gcFmt(p0[1] + fy * rampLen) +
+        ' Z' + _gcFmt(z) + ' F' + tool.plunge);
     } else {
       L('G1 Z' + _gcFmt(z) + ' F' + tool.plunge);
     }
 
-    // Parcours du contour
-    for (var i = 1; i < offsetPath.length; i++) {
-      L('G1 X' + _gcFmt(offsetPath[i][0]) + ' Y' + _gcFmt(offsetPath[i][1]) + ' F' + tool.feed);
-    }
+    // Les pontets ne servent qu'à la DERNIÈRE passe : c'est elle qui
+    // traverse et qui libérerait la pièce.
+    _parcourirContour(L, offsetPath, z,
+                      derniere && pontets.length ? pontets : [],
+                      -Math.max(0, op.depth - P.martyr - P.pontets_haut), tool);
   }
   L('G0 Z' + _gcFmt(P.safe_z));
+  if (pontets.length)
+    L('(  ' + pontets.length + ' pontets de ' + P.pontets_long + ' mm x ' +
+      P.pontets_haut + ' mm d\'epaisseur — a casser au ciseau)');
+}
+
+// ── Où poser les pontets ──────────────────────────────────────────
+// Répartis PAR CÔTÉ, pas uniformément sur le pourtour : sur une pièce
+// longue, une répartition au pourtour met tous les pontets sur les deux
+// grands côtés et les deux bouts ne sont plus tenus — ils se relèvent et
+// la fraise les attrape. Chaque côté assez long reçoit donc au moins un
+// pontet, les côtés longs en reçoivent davantage.
+// Retourne des intervalles [début, fin] en abscisse curviligne.
+function _placerPontets(pts) {
+  var P = GCODE_PARAMS;
+  if (!(P.pontets_nb > 0) || !(P.pontets_long > 0)) return [];
+  // longueur et abscisse de départ de chaque côté
+  var cotes = [], s = 0;
+  for (var i = 1; i < pts.length; i++) {
+    var len = Math.sqrt(Math.pow(pts[i][0] - pts[i-1][0], 2) + Math.pow(pts[i][1] - pts[i-1][1], 2));
+    if (len > 1e-9) cotes.push({ s: s, len: len });
+    s += len;
+  }
+  if (!cotes.length) return [];
+  // Un côté doit pouvoir porter le pontet ET garder de la coupe autour.
+  var miniCote = P.pontets_long * 3;
+  var utiles = cotes.filter(function (c) { return c.len >= miniCote; });
+  if (!utiles.length) return [];                 // pièce minuscule : pas de pontet
+  var total = utiles.reduce(function (a, c) { return a + c.len; }, 0);
+
+  // au moins 1 par côté utile, le reste au prorata de la longueur
+  var reste = Math.max(0, P.pontets_nb - utiles.length);
+  var out = [];
+  utiles.forEach(function (c) {
+    var n = 1 + Math.round(reste * c.len / total);
+    // ne jamais tasser deux pontets à moins de 3 longueurs l'un de l'autre
+    n = Math.min(n, Math.max(1, Math.floor(c.len / miniCote)));
+    for (var k = 0; k < n; k++) {
+      var centre = c.s + c.len * (k + 0.5) / n;
+      out.push([centre - P.pontets_long / 2, centre + P.pontets_long / 2]);
+    }
+  });
+  return out;
+}
+
+
+// Parcourt le contour à la cote z, en remontant à zPontet sur les
+// intervalles d'abscisse curviligne listés dans `pontets`.
+// Un pontet peut tomber à cheval sur un angle : on découpe donc chaque
+// segment aux bornes des pontets plutôt que de raisonner par côté.
+function _parcourirContour(L, pts, z, pontets, zPontet, tool) {
+  var s = 0, zCur = z;
+  function dansPontet(sm) {
+    for (var k = 0; k < pontets.length; k++)
+      if (sm >= pontets[k][0] && sm <= pontets[k][1]) return true;
+    return false;
+  }
+  for (var i = 1; i < pts.length; i++) {
+    var a = pts[i-1], b = pts[i];
+    var dx = b[0] - a[0], dy = b[1] - a[1];
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1e-9) continue;
+    // bornes de pontets tombant à l'intérieur de ce segment
+    var coupes = [0];
+    pontets.forEach(function (p) {
+      [p[0], p[1]].forEach(function (sp) {
+        var u = (sp - s) / len;
+        if (u > 1e-6 && u < 1 - 1e-6) coupes.push(u);
+      });
+    });
+    coupes.push(1);
+    coupes.sort(function (p, q) { return p - q; });
+    for (var k = 1; k < coupes.length; k++) {
+      var u0 = coupes[k-1], u1 = coupes[k];
+      var zVoulu = dansPontet(s + (u0 + u1) / 2 * len) ? zPontet : z;
+      // On change la cote À LA FRONTIÈRE, avant d'entamer le sous-segment.
+      if (Math.abs(zVoulu - zCur) > 1e-6) {
+        L('G1 Z' + _gcFmt(zVoulu) + ' F' + tool.plunge + (zVoulu > z ? '   (pontet)' : '   (fin pontet)'));
+        zCur = zVoulu;
+      }
+      L('G1 X' + _gcFmt(a[0] + dx * u1) + ' Y' + _gcFmt(a[1] + dy * u1) + ' F' + tool.feed);
+    }
+    s += len;
+  }
+  // rétablir la cote de passe si on a fini dans un pontet
+  if (Math.abs(zCur - z) > 1e-6) L('G1 Z' + _gcFmt(z) + ' F' + tool.plunge + '   (fin pontet)');
 }
 
 // Offset d'un rectangle fermé (simplification : valable pour rectangles seulement)
@@ -830,7 +983,21 @@ function _buildReadme(jobs) {
   lines.push('  • Coordonnées  : absolues (G90) / plan XY (G17) / WCS G54');
   lines.push('  • Origine      : coin bas-gauche de la pièce, surface pièce = Z0');
   lines.push('  • Broche       : sens horaire (M3)');
-  lines.push('  • Tool changes : M6 T_ + M0 (pause manuelle)');
+  lines.push('  • Sens coupe   : ' + GCODE_PARAMS.sens_coupe +
+             (GCODE_PARAMS.sens_coupe === 'avalant'
+               ? ' (climb — chant net ; passer en opposition si la machine a du jeu)'
+               : ' (conventional)'));
+  lines.push('  • Changement d\'outil : ' +
+             (GCODE_PARAMS.dialecte === 'iso'
+               ? 'M6 T_ + M0 (pause manuelle)'
+               : 'pause M0 seule — GRBL refuse M6 (error:20)'));
+  lines.push('');
+  lines.push('PONTETS (tabs) :');
+  lines.push('  Les découpes traversantes laissent ' + GCODE_PARAMS.pontets_nb +
+             ' pontets de ' + GCODE_PARAMS.pontets_long + ' mm,');
+  lines.push('  d\'une épaisseur de ' + GCODE_PARAMS.pontets_haut + ' mm, répartis un par côté.');
+  lines.push('  Sans eux la pièce se libère avant la fin du tour et la fraise');
+  lines.push('  la projette. Les casser au ciseau, puis araser à l\'affleureuse.');
   lines.push('');
   lines.push('AVANT DE LANCER :');
   lines.push('  1. Vérifier la table d\'outils (voir en-têtes de chaque fichier)');
@@ -838,6 +1005,8 @@ function _buildReadme(jobs) {
   lines.push('     pour les découpes traversantes (contour), sinon surface pièce.');
   lines.push('  3. Fixer solidement la pièce (pas de bougé pendant l\'usinage).');
   lines.push('  4. Première pièce : simulation à vide avant usinage réel.');
+  lines.push('  5. Un fichier qui s\'ouvre sur « COORDONNEE(S) INVALIDE(S) » ne doit');
+  lines.push('     PAS être lancé : le débit est à corriger et l\'export à refaire.');
   lines.push('');
   lines.push('LIMITES CONNUES :');
   lines.push('  • Les trous sur CHANT (tourillons de bout, Cabineo femelle, etc.)');
