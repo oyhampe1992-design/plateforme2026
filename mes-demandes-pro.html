@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Mes demandes reçues — The Wooder Pro</title>
+<link rel="stylesheet" href="wooder-fonts.css"><!-- charte The Wooder -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F5EFE6">
+<style>
+  :root {
+    --accent: #4F5E3C; --sage:#A7B98C; --sage-soft:#DCE6CF; --sage-deep:#4F5E3C;
+    --accent-dark: #6B3410;
+    --bg: #F5EFE6;
+    --bg-card: #fff;
+    --border: #E5DDD0;
+    --text: #2C2620;
+    --text-secondary: #6B5D4E;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── TOP NAV ──────────────────────────────────────────── */
+  nav {
+    background: rgba(245, 239, 230, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: -0.3px;
+  }
+  .brand-sub { color: var(--text-secondary); font-weight: 500; font-size: 13px; margin-left: 4px; }
+
+  .nav-actions { display: flex; gap: 8px; }
+  .nav-btn {
+    background: transparent;
+    border: 1.5px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .nav-btn-primary:hover { background: var(--accent-dark); color: white; }
+
+  /* ─── MAIN LAYOUT ──────────────────────────────────────── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  .page-header { margin-bottom: 28px; }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 15px;
+  }
+
+  /* ─── STATS ────────────────────────────────────────────── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .stat-num {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1.1;
+  }
+  .stat-label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  /* ─── ÉTATS (loading, empty, error) ────────────────────── */
+  .placeholder {
+    text-align: center;
+    padding: 60px 24px;
+    background: var(--bg-card);
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    color: var(--text-secondary);
+  }
+  .placeholder-icon { font-size: 40px; margin-bottom: 12px; }
+  .placeholder-title { font-weight: 700; color: var(--text); font-size: 18px; margin-bottom: 6px; }
+  .placeholder-text { font-size: 14px; line-height: 1.5; }
+
+  /* ─── CARDS DEMANDES ───────────────────────────────────── */
+  .demande {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .demande:hover {
+    border-color: var(--accent);
+    box-shadow: 0 2px 14px rgba(139, 69, 19, 0.08);
+  }
+
+  .demande-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .demande-titre {
+    font-size: 17px;
+    font-weight: 700;
+    flex: 1;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .badge {
+    padding: 4px 11px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .badge-envoyee {
+    background: #FFF7E6;
+    color: #B7791F;
+    border: 1px solid #F6C870;
+  }
+  .badge-repondue {
+    background: #E6F4EA;
+    color: #1E7937;
+    border: 1px solid #76C893;
+  }
+  .badge-fermee {
+    background: #F0F0F0;
+    color: #666;
+    border: 1px solid #D1D1D1;
+  }
+
+  .demande-date {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .demande-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .demande-field-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+  }
+  .demande-field-value {
+    font-size: 15px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .demande-description {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    white-space: pre-line;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.65;
+  }
+
+  /* ─── RESPONSIVE ───────────────────────────────────────── */
+  @media (max-width: 600px) {
+    main { padding: 24px 16px 60px; }
+    h1 { font-size: 22px; }
+    nav { padding: 12px 16px; }
+    .brand { font-size: 15px; }
+    .brand-sub { display: none; }
+    .nav-btn { padding: 7px 11px; font-size: 13px; }
+    .demande-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr; }
+    .demande { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="brand" href="espace-pro.html">
+    The Wooder<span class="brand-sub">· Espace pro</span>
+  </a>
+  <div class="nav-actions">
+    <button class="nav-btn" type="button" id="btn-espace-pro">← Espace pro</button>
+    <button class="nav-btn" type="button" id="btn-logout">🚪 Sortir</button>
+  </div>
+</nav>
+
+<main>
+  <header class="page-header">
+    <h1>Mes demandes reçues</h1>
+    <p class="subtitle">Devis demandés par des clients via la plateforme.</p>
+  </header>
+
+  <div class="stats" id="stats" style="display:none;">
+    <!-- Généré dynamiquement -->
+  </div>
+
+  <div id="demandes-container">
+    <div class="placeholder">
+      <div class="placeholder-text">Chargement de vos demandes…</div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/wooder-shapediver-mapping.js"></script>
+<script>
+  'use strict';
+
+  const SUPABASE_URL = 'https://xsbumjjrkjupkufmzxde.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_8wvp-qX7dW965jRP8E9eQg_wfQlXCj_';
+  const PROJECT_REF  = 'xsbumjjrkjupkufmzxde';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentUserId = null;
+
+  // ─── Helper : lit la session depuis les cookies Next.js (@supabase/ssr) ──
+  function getSessionFromCookies() {
+    const cookies = document.cookie.split('; ').filter(Boolean);
+    const baseName = `sb-${PROJECT_REF}-auth-token`;
+    let chunks = [];
+    const direct = cookies.find(c => c.startsWith(baseName + '='));
+    if (direct) {
+      chunks.push(decodeURIComponent(direct.split('=').slice(1).join('=')));
+    } else {
+      for (let i = 0; ; i++) {
+        const chunk = cookies.find(c => c.startsWith(`${baseName}.${i}=`));
+        if (!chunk) break;
+        chunks.push(decodeURIComponent(chunk.split('=').slice(1).join('=')));
+      }
+    }
+    if (chunks.length === 0) return null;
+    let raw = chunks.join('');
+    if (raw.startsWith('base64-')) {
+      try { raw = atob(raw.slice(7)); } catch { return null; }
+    }
+    try { return JSON.parse(raw); } catch { return null; }
+  }
+
+  function escapeHTML(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+
+  function formatDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString('fr-FR', {
+        day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch { return '—'; }
+  }
+
+  function formatBudget(min, max) {
+    if (min == null && max == null) return '—';
+    if (min == null) return '≤ ' + max + ' €';
+    if (max == null) return '≥ ' + min + ' €';
+    return min + ' € — ' + max + ' €';
+  }
+
+  // ─── INIT : auth + chargement ──────────────────────────────
+  (async function init() {
+    // 1. Vérifier session
+    let { data: { user } } = await sb.auth.getUser();
+    if (!user) {
+      const cookieSession = getSessionFromCookies();
+      if (cookieSession && cookieSession.access_token) {
+        const { data } = await sb.auth.setSession({
+          access_token: cookieSession.access_token,
+          refresh_token: cookieSession.refresh_token
+        });
+        if (data && data.user) user = data.user;
+      }
+    }
+    if (!user) {
+      window.location.href = '/login';
+      return;
+    }
+    currentUserId = user.id;
+
+    // 2. Vérifier role artisan
+    const { data: profile, error: profileErr } = await sb
+      .from('profiles')
+      .select('role, prenom')
+      .eq('id', user.id)
+      .single();
+    if (profileErr || !profile) {
+      window.location.href = '/login';
+      return;
+    }
+    if (profile.role !== 'artisan') {
+      alert('Cette page est réservée aux artisans.');
+      window.location.href = '/';
+      return;
+    }
+
+    // 3. Charger les demandes
+    await loadDemandes();
+  })();
+
+  // ─── Récupération des demandes ─────────────────────────────
+  async function loadDemandes() {
+    const { data, error } = await sb
+      .from('demandes_devis')
+      .select('id, client_id, titre, description, budget_min, budget_max, dimensions_indicatives, photos_url, statut, created_at, updated_at, inspiration_id, configuration_id')
+      .eq('artisan_id', currentUserId)
+      .order('created_at', { ascending: false });
+
+    const container = document.getElementById('demandes-container');
+
+    if (error) {
+      console.error('loadDemandes error:', error);
+      container.innerHTML = `
+        <div class="placeholder">
+          <div class="placeholder-icon">⚠️</div>
+          <div class="placeholder-title">Erreur de chargement</div>
+          <div class="placeholder-text">${escapeHTML(error.message)}</div>
+        </div>`;
+      return;
+    }
+
+    renderStats(data || []);
+    renderDemandes(data || []);
+    chargerClients(data || []);
+  }
+
+  // ─── Qui a envoyé la demande ──────────────────────────────────
+  // La lecture du profil client dépend d'une policy Supabase
+  // (patch-artisan-voit-client.sql). Tant qu'elle n'est pas passée, la
+  // requête ne renvoie rien : on l'écrit donc pour que la page reste
+  // parfaitement utilisable sans, plutôt que d'afficher une erreur.
+  async function chargerClients(demandes) {
+    const ids = [...new Set(demandes.map(d => d.client_id).filter(Boolean))];
+    if (!ids.length) return;
+    const { data: profils, error } = await sb
+      .from('profiles')
+      .select('id, prenom, nom, email, telephone')
+      .in('id', ids);
+    if (error) { console.warn('chargerClients:', error.message); return; }
+    const parId = Object.fromEntries((profils || []).map(p => [p.id, p]));
+
+    demandes.forEach(d => {
+      const zone = document.getElementById('client-' + d.id);
+      const p = parId[d.client_id];
+      if (!zone || !p) return;                  // profil non lisible : on n'affiche rien
+      const nom = [p.prenom, p.nom].filter(Boolean).join(' ') || 'Client';
+      const liens = [];
+      if (p.telephone) liens.push('<a href="tel:' + escapeHTML(p.telephone) + '" style="color:#854F0B">' + escapeHTML(p.telephone) + '</a>');
+      if (p.email)     liens.push('<a href="mailto:' + escapeHTML(p.email) + '" style="color:#854F0B">' + escapeHTML(p.email) + '</a>');
+      zone.innerHTML =
+        '<span style="font-weight:700;color:#161615">👤 ' + escapeHTML(nom) + '</span>' +
+        (liens.length ? ' · ' + liens.join(' · ') : '');
+      zone.style.display = '';
+    });
+  }
+
+  // ─── Stats en haut ─────────────────────────────────────────
+  function renderStats(demandes) {
+    const total = demandes.length;
+    const nouvelles = demandes.filter(d => d.statut === 'envoyee').length;
+    const repondues = demandes.filter(d => d.statut === 'repondue').length;
+
+    const statsEl = document.getElementById('stats');
+    statsEl.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-num">${nouvelles}</div>
+        <div class="stat-label">Nouvelle${nouvelles > 1 ? 's' : ''} demande${nouvelles > 1 ? 's' : ''}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${repondues}</div>
+        <div class="stat-label">Devis déjà envoyé${repondues > 1 ? 's' : ''}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${total}</div>
+        <div class="stat-label">Total demandes</div>
+      </div>
+    `;
+    statsEl.style.display = '';
+  }
+
+  // ─── Pré-remplissage du calcul depuis une demande ─────────────
+  // dimensions_indicatives est du texte libre → parsing best-effort en L/H/P,
+  // puis modèle WooderPlan2D caisson vide → calcul.html?meuble=<base64>
+  // (même canal que l'éditeur ; l'artisan ajuste/structure ensuite dans calcul).
+  function urlDevisDepuisDemande(d) {
+    const txt = (d.dimensions_indicatives || '').toLowerCase().replace(/\s+/g, ' ');
+    const def = { L: 1000, H: 2000, P: 600 };
+    function grab(re) { const m = txt.match(re); return m ? parseFloat(m[1].replace(',', '.')) : null; }
+    let l = grab(/\b(?:largeur|long(?:ueur)?|l)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/);
+    let h = grab(/\b(?:hauteur|haut(?:eur)?|h)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/);
+    let p = grab(/\b(?:profondeur|prof(?:ondeur)?|p)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/);
+    if (l == null || h == null) {                      // repli : 1ers nombres « N x N x N »
+      const nums = (txt.match(/\d+(?:[.,]\d+)?/g) || []).map(s => parseFloat(s.replace(',', '.')));
+      if (nums.length >= 2) {
+        if (l == null) l = nums[0];
+        if (h == null) h = nums[1];
+        if (p == null && nums.length >= 3) p = nums[2];
+      }
+    }
+    const mm = v => (v == null ? null : (v < 400 ? Math.round(v * 10) : Math.round(v))); // < 400 → cm
+    l = mm(l); h = mm(h); p = mm(p);
+    const model = { H: h || def.H, L: l || def.L, P: p || def.P, ep: 19, racine: {}, _nom: (d.titre || 'Demande de devis') };
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(model))));
+    return 'calcul.html?meuble=' + encodeURIComponent(b64);
+  }
+
+  // ─── Liste des demandes ────────────────────────────────────
+  function renderDemandes(demandes) {
+    const container = document.getElementById('demandes-container');
+
+    if (demandes.length === 0) {
+      container.innerHTML = `
+        <div class="placeholder">
+          <div class="placeholder-icon">📭</div>
+          <div class="placeholder-title">Aucune demande pour l'instant</div>
+          <div class="placeholder-text">
+            Les demandes de devis envoyées par des clients apparaîtront ici.<br>
+            Pensez à compléter votre profil pour être visible !
+          </div>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = demandes.map(d => {
+      const statutLabel = d.statut === 'envoyee' ? 'Nouvelle'
+        : d.statut === 'repondue' ? 'Devis envoyé'
+        : d.statut === 'fermee' ? 'Fermée'
+        : d.statut;
+      return `
+        <div class="demande">
+          <div class="demande-header">
+            <div class="demande-titre">${escapeHTML(d.titre || 'Demande de devis')}</div>
+            <span class="badge badge-${escapeHTML(d.statut)}">${escapeHTML(statutLabel)}</span>
+          </div>
+          <div class="demande-date">Reçue le ${formatDate(d.created_at)}</div>
+          <div id="client-${escapeHTML(d.id)}" style="display:none;margin-top:6px;font-size:14px"></div>
+          ${(d.photos_url && d.photos_url.length) ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            ${d.photos_url.map(u => `<img src="${escapeHTML(u)}" alt="Photo envoyée par le client"
+               style="width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid #E5DDD0">`).join('')}
+          </div>` : ''}
+          <div class="demande-grid">
+            <div>
+              <div class="demande-field-label">Dimensions</div>
+              <div class="demande-field-value">${escapeHTML(d.dimensions_indicatives || '—')}</div>
+            </div>
+            <div>
+              <div class="demande-field-label">Fourchette budget client</div>
+              <div class="demande-field-value">${formatBudget(d.budget_min, d.budget_max)}</div>
+            </div>
+          </div>
+          ${d.description ? `<div class="demande-description">${escapeHTML(d.description)}</div>` : ''}
+          ${d.configuration_id ? `<div class="config-3d" id="config-${escapeHTML(d.id)}" style="margin-top:14px;padding:12px;background:#FAF7F0;border:1px solid #E5DDD0;border-radius:10px;font-size:13px;color:#8A7F6F">Chargement de la configuration 3D…</div>` : ''}
+          <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap" id="actions-${escapeHTML(d.id)}">
+            <a href="${urlDevisDepuisDemande(d)}" target="_blank" rel="noopener"
+               style="display:inline-block;background:#854F0B;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px">
+              🧮 Préparer le devis
+            </a>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Enrichissement asynchrone : configs 3D liées (screenshot + pré-remplissage)
+    chargerConfigs3D(demandes.filter(d => d.configuration_id));
+  }
+
+  // ─── Résumé lisible d'un meuble ───────────────────────────────
+  // On parcourt l'arbre des cases pour compter ce qui se voit : colonnes,
+  // étagères, portes, tiroirs. C'est ce que l'artisan veut savoir d'un
+  // coup d'œil pour chiffrer, bien plus que la hauteur hors-tout.
+  function resumeMeuble(m) {
+    let colonnes = 0, etageres = 0, portes = 0, tiroirs = 0;
+    (function parcourir(c, racine) {
+      if (!c) return;
+      if (c.facade) {
+        // une porte « double » = deux vantaux ; un tiroir sans sous-division
+        // reste UN tiroir (le tableau `tiroirs` n'existe qu'au-delà de 1).
+        if (c.facade.type === 'porte') portes += (c.facade.sens === 'double') ? 2 : 1;
+        else if (c.facade.type === 'tiroir')
+          tiroirs += (c.facade.tiroirs && c.facade.tiroirs.length) || 1;
+      }
+      if (c.enfants && c.enfants.length) {
+        if (c.sens === 'v') { if (racine) colonnes = c.enfants.length; }
+        else etageres += c.enfants.length - 1;
+        c.enfants.forEach(function (e) { parcourir(e, false); });
+      }
+    })(m.racine, true);
+
+    const bouts = [];
+    bouts.push(colonnes > 1 ? colonnes + ' colonnes' : '1 colonne');
+    if (etageres) bouts.push(etageres + ' étagère' + (etageres > 1 ? 's' : ''));
+    if (portes)   bouts.push(portes + ' porte' + (portes > 1 ? 's' : ''));
+    if (tiroirs)  bouts.push(tiroirs + ' tiroir' + (tiroirs > 1 ? 's' : ''));
+    if (!etageres && !portes && !tiroirs) bouts.push('caisson nu');
+    bouts.push('panneau ' + (m.ep || 19) + ' mm');
+    if (m.pieds && m.pieds.active) bouts.push('plinthe ' + (m.pieds.hauteurPlinthe || 80) + ' mm');
+    return bouts.join(' · ');
+  }
+
+  // ─── Configurations 3D liées (configurateur ShapeDiver) ───────
+  // Pour chaque demande liée à une config : affiche l'aperçu (URL signée du
+  // bucket privé config-screenshots) + bouton « Préparer le devis (3D) » qui
+  // pré-remplit calcul.html avec les dimensions EXACTES de la géométrie.
+  async function chargerConfigs3D(demandes) {
+    if (!demandes.length) return;
+    const ids = [...new Set(demandes.map(d => d.configuration_id))];
+    const { data: configs, error } = await sb
+      .from('configurations')
+      .select('id, cabinet_json, materials_json, screenshot_url, status, created_at')
+      .in('id', ids);
+    if (error) { console.warn('chargerConfigs3D:', error); return; }
+    const parId = Object.fromEntries((configs || []).map(c => [c.id, c]));
+
+    for (const d of demandes) {
+      const cfg = parId[d.configuration_id];
+      const zone = document.getElementById('config-' + d.id);
+      if (!zone) continue;
+      if (!cfg) { zone.textContent = 'Configuration 3D inaccessible.'; continue; }
+
+      // 0) Normalisation : 1 meuble (format historique) ou N meubles (_multi)
+      const meublesCfg = cfg.cabinet_json?._multi
+        ? (cfg.cabinet_json.meubles || [])
+        : (cfg.cabinet_json ? [cfg.cabinet_json] : []);
+
+      // 1) Aperçu : URL signée (10 min) du screenshot
+      let imgHtml = '';
+      if (cfg.screenshot_url) {
+        const { data: signed } = await sb.storage
+          .from('config-screenshots')
+          .createSignedUrl(cfg.screenshot_url, 600);
+        if (signed?.signedUrl) {
+          imgHtml = `<img src="${signed.signedUrl}" alt="Aperçu 3D du meuble"
+            style="max-width:220px;border-radius:8px;border:1px solid #E5DDD0;display:block">`;
+        }
+      }
+      // 2) Dimensions exactes depuis la géométrie (total si plusieurs meubles)
+      let dims = null;
+      if (meublesCfg.length === 1) {
+        const s1 = meublesCfg[0]?.carcassAttributes?.size;
+        if (s1) dims = `L ${s1.width} × H ${s1.height} × P ${s1.depth} mm`;
+      } else if (meublesCfg.length > 1) {
+        const tailles = meublesCfg.map(c => c?.carcassAttributes?.size).filter(Boolean);
+        if (tailles.length) {
+          const L = tailles.reduce((a, s) => a + s.width, 0);
+          dims = `${meublesCfg.length} meubles — L totale ${L} × H ${Math.max(...tailles.map(s => s.height))} × P ${Math.max(...tailles.map(s => s.depth))} mm`;
+        }
+      }
+      zone.innerHTML = `
+        <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+          ${imgHtml}
+          <div>
+            <div style="font-weight:700;color:#161615;margin-bottom:4px">🧊 Configuration 3D du client</div>
+            ${dims ? `<div>Dimensions exactes : <strong>${escapeHTML(dims)}</strong></div>` : ''}
+            <div style="margin-top:4px">Reçue le ${formatDate(cfg.created_at)}</div>
+            <div class="fichiers-fab" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+          </div>
+        </div>`;
+
+      // 3) Fichiers de fabrication : fiche de débit (CSV) + vues éclatées
+      const zoneFichiers = zone.querySelector('.fichiers-fab');
+      const lignesCsv = [];
+      meublesCfg.forEach((c, i) => {
+        if (c?._cutlist) lignesCsv.push(...cutlistEnLignes(c._cutlist, 'Meuble ' + (i + 1)));
+      });
+      if (lignesCsv.length && zoneFichiers) {
+        const btnCsv = document.createElement('button');
+        btnCsv.type = 'button';
+        btnCsv.style.cssText = 'padding:6px 12px;border:1px solid #C9BDA9;border-radius:8px;background:#fff;cursor:pointer;font-size:13px';
+        btnCsv.textContent = '📄 Fiche de débit (CSV)';
+        btnCsv.addEventListener('click', () => telechargerCSV('fiche-debit-' + d.id.slice(0, 8) + '.csv', lignesCsv));
+        zoneFichiers.appendChild(btnCsv);
+      }
+      for (let i = 0; i < meublesCfg.length; i++) {
+        const chemin = meublesCfg[i]?._plans;
+        if (!chemin) continue;
+        const { data: signedP } = await sb.storage
+          .from('config-screenshots')
+          .createSignedUrl(chemin, 600);
+        if (signedP?.signedUrl && zoneFichiers) {
+          const a = document.createElement('a');
+          a.href = signedP.signedUrl;
+          a.target = '_blank'; a.rel = 'noopener';
+          a.style.cssText = 'padding:6px 12px;border:1px solid #C9BDA9;border-radius:8px;background:#fff;text-decoration:none;color:#161615;font-size:13px';
+          a.textContent = '📐 Vue éclatée' + (meublesCfg.length > 1 ? ' M' + (i + 1) : '');
+          zoneFichiers.appendChild(a);
+        }
+      }
+
+      // 4) Pré-remplissage exact du calcul : TOUS les meubles d'un coup
+      //    (canal LISTE ?meubles= de calcul.html — mode Projet)
+      const actions = document.getElementById('actions-' + d.id);
+      const modeles = meublesCfg
+        .filter(c => c?.carcassAttributes?.size)
+        .map((c, i) => WooderShapeDiverMapping.modeleCalculDepuisCabinet(
+          c, (d.titre || 'Configuration 3D') + (meublesCfg.length > 1 ? ' — meuble ' + (i + 1) : '')));
+
+      // 4bis) Ce que le client a RÉELLEMENT choisi, meuble par meuble.
+      // Les dimensions seules ne disent pas si le client veut des portes,
+      // des tiroirs ou des étagères : l'artisan devait ouvrir l'éditeur
+      // pour le découvrir. On le pose ici, avant qu'il ouvre quoi que ce soit.
+      if (modeles.length) {
+        const detail = document.createElement('div');
+        detail.style.cssText = 'margin-top:10px;border-top:1px solid #E5DDD0;padding-top:10px';
+        detail.innerHTML = '<div style="font-weight:700;color:#161615;margin-bottom:6px">' +
+          (modeles.length > 1 ? modeles.length + ' meubles demandés' : 'Ce que le client a choisi') + '</div>' +
+          modeles.map((m, i) => {
+            const r = resumeMeuble(m);
+            return '<div style="margin-bottom:6px">' +
+              (modeles.length > 1 ? '<strong>Meuble ' + (i + 1) + '</strong> — ' : '') +
+              escapeHTML(m.L + ' × ' + m.H + ' × ' + m.P + ' mm') +
+              '<div style="color:#6B6355">' + escapeHTML(r) + '</div></div>';
+          }).join('');
+        zone.appendChild(detail);
+      }
+
+      if (actions && modeles.length) {
+        const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(modeles))));
+        // Ouvrir dans l'ÉDITEUR : c'est là qu'on reprend le meuble du client
+        // pour l'ajuster. Sans ce lien l'éditeur s'ouvrait vierge et tout le
+        // travail du client était perdu.
+        const e = document.createElement('a');
+        e.href = 'editeur-meuble.html?meubles=' + encodeURIComponent(b64);
+        e.target = '_blank'; e.rel = 'noopener';
+        e.style.cssText = 'display:inline-block;background:#fff;color:#4F5E3C;border:1px solid #4F5E3C;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px';
+        e.textContent = '✏️ Ouvrir dans l\'éditeur';
+        actions.prepend(e);
+
+        const a = document.createElement('a');
+        a.href = 'calcul.html?meubles=' + encodeURIComponent(b64);
+        a.target = '_blank'; a.rel = 'noopener';
+        a.style.cssText = 'display:inline-block;background:#4F5E3C;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px';
+        a.textContent = '🧊 Devis 3D exact' + (modeles.length > 1 ? ' (' + modeles.length + ' meubles)' : '');
+        actions.prepend(a);
+      }
+    }
+  }
+
+  // ─── Fiche de débit : cutlistJson du modèle → lignes CSV ─────────
+  const NOMS_PANNEAUX = {
+    leftPanel: 'Joue gauche', rightPanel: 'Joue droite',
+    topPanel: 'Dessus', bottomPanel: 'Dessous', backPanel: 'Fond', plinth: 'Plinthe'
+  };
+  function nomPanneau(cle) {
+    if (NOMS_PANNEAUX[cle]) return NOMS_PANNEAUX[cle];
+    let m;
+    if ((m = cle.match(/^shelve_(\d+)$/))) return 'Étagère ' + (parseInt(m[1], 10) + 1);
+    if ((m = cle.match(/^divider_(\d+)$/))) return 'Séparation ' + (parseInt(m[1], 10) + 1);
+    if (/door/i.test(cle)) return ('Porte ' + cle.replace(/\D+/g, ' ')).trim();
+    if (/drawer/i.test(cle)) return ('Tiroir ' + cle.replace(/\D+/g, ' ')).trim();
+    return cle;
+  }
+  function cutlistEnLignes(cutlist, prefixeMeuble) {
+    const lignes = [];
+    Object.keys(cutlist || {}).forEach(k => {
+      const p = cutlist[k];
+      if (p && typeof p === 'object' && ('Lenght' in p || 'Length' in p)) {
+        lignes.push([prefixeMeuble, nomPanneau(k), p.ID || '',
+          p.Lenght || p.Length || '', p.Width || '', p.Thickness || '', p.Quantity || 1]);
+      }
+    });
+    return lignes;
+  }
+  function telechargerCSV(nomFichier, lignes) {
+    const entete = 'Meuble;Panneau;Repère;Longueur (mm);Largeur (mm);Épaisseur (mm);Quantité';
+    const csv = '﻿' + entete + '\n' + lignes.map(l => l.join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nomFichier;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  // Pré-remplissage de calcul.html depuis la géométrie d'UN meuble.
+  // Même canal que urlDevisDepuisDemande : modèle WooderPlan2D en base64.
+  function urlDevisDepuisCabinet(cabinet, nom) {
+    const size = cabinet.carcassAttributes.size;
+    const th = cabinet.carcassAttributes.thickness || {};
+    const ep = parseInt(th.leftPanel, 10) || 19;
+    const model = {
+      H: Math.round(size.height),
+      L: Math.round(size.width),
+      P: Math.round(size.depth),
+      ep: ep,
+      racine: {},
+      _nom: nom
+    };
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(model))));
+    return 'calcul.html?meuble=' + encodeURIComponent(b64);
+  }
+
+  // ─── Boutons nav ───────────────────────────────────────────
+  document.getElementById('btn-espace-pro').addEventListener('click', () => {
+    window.location.href = 'espace-pro.html';
+  });
+
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    const baseName = `sb-${PROJECT_REF}-auth-token`;
+    document.cookie = `${baseName}=; Max-Age=0; path=/`;
+    for (let i = 0; i < 10; i++) {
+      document.cookie = `${baseName}.${i}=; Max-Age=0; path=/`;
+    }
+    window.location.href = '/';
+  });
+</script>
+
+</body>
+</html>
