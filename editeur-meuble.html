@@ -1110,6 +1110,51 @@
       return mdl;
     }
 
+    // ── Réception d'un projet existant ──────────────────────────────
+    // L'éditeur SAVAIT envoyer un projet (« Générer le devis » → calcul.html
+    // ?meuble= / ?meubles=) mais pas en recevoir : ouvert depuis une demande
+    // client, il repartait d'une page blanche. Même format, sens inverse.
+    // Le modèle transporté est un WooderPlan2D complet — c'est aussi ce que
+    // produit WooderShapeDiverMapping, donc une config 3D s'ouvre telle quelle.
+    (function recevoirProjet() {
+      var params = new URLSearchParams(window.location.search);
+      var brut = params.get('meubles') || params.get('meuble');
+      if (!brut) return;
+      var data;
+      try {
+        data = JSON.parse(decodeURIComponent(escape(atob(
+          brut.replace(/-/g, '+').replace(/_/g, '/')))));
+      } catch (e) { console.error('[editeur] projet illisible :', e); return; }
+
+      var liste = Array.isArray(data) ? data : [data];
+      liste = liste.filter(function (m) { return m && m.H && m.L; });
+      if (!liste.length) { console.warn('[editeur] projet vide'); return; }
+
+      // Le premier meuble occupe la place de base ; les suivants se posent à
+      // sa droite, comme quand on les ajoute à la main.
+      ensemble = liste.map(function (m, i) {
+        return { nom: m._nom || ('Meuble ' + (i + 1)),
+                 pos: i === 0 ? 'base' : 'droite',
+                 hSol: 0, dec: 0, modele: m,
+                 ref: i === 0 ? 0 : i - 1,
+                 modeOK: !!m.modeConstruction };
+      });
+      selE = 0;
+      modele = ensemble[0].modele;
+      // Un projet reçu a déjà son mode de construction : on ouvre directement
+      // l'éditeur plutôt que de redemander ce qui est déjà décidé.
+      modeConfirme = !!modele.modeConstruction;
+
+      var inpNom = document.getElementById('nom');
+      if (inpNom && ensemble[0].nom) inpNom.value = ensemble[0].nom;
+
+      majEtapeEditeur();     // révèle l'éditeur (le mode est déjà décidé)
+      majOngletsE();
+      ouvrir();
+      majHabillage();
+      maj3D();
+    }());
+
     // Clé sessionStorage partagée avec la page d'analyse (flux analyseur ⇄ éditeur).
     var WOODER_EDITS = 'wooder_meubles_edites_v1';
 
@@ -1156,13 +1201,15 @@
       try { m = _modele2DDepuisPhoto(photoData); }
       catch (e) { console.warn('[editeur] modèle non construit :', e); return; }
 
-      entrerMode('meuble');                 // bascule sur « Meuble seul »
       modele = m;                           // modèle issu de l'analyse (dims gérées par la barre de l'éditeur)
+      ensemble[selE].modele = m;            // l'ensemble doit suivre, sinon la 3D et le devis gardent l'ancien
       var nom = (photoData.ensemble && (photoData.ensemble.nom_client || photoData.ensemble.nom)) || '';
       var inpNom = document.getElementById('nom');
       if (nom && inpNom) inpNom.value = nom;
       modeConfirme = true;                  // meuble déjà conçu (analyse) → éditeur direct
+      majEtapeEditeur();                    // révèle l'éditeur (entrerMode n'existe plus)
       ouvrir();                             // (re)construit l'éditeur avec ce modèle
+      maj3D();
 
       if (retour) ajouterBoutonRetour(idx);
     }());
